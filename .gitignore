@@ -1,0 +1,29 @@
+# ---------------------------
+# Python
+# ---------------------------
+__pycache__/
+
+# ---------------------------
+# PyTorch / Machine Learning
+# ---------------------------
+
+# Model checkpoints
+*.pth
+*.pt
+*.ckpt
+
+logs/
+results/
+
+# ---------------------------
+# Editors & IDEs
+# ---------------------------
+.vscode/
+
+# ---------------------------
+# Other common patterns
+# ---------------------------
+
+# Environment variables
+.env
+.env.*
