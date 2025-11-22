@@ -1,0 +1,91 @@
+# /src/configs/train/div2k_hr_baseModel.yaml
+
+train_data_loader:
+  num_workers: 4
+  batch_size: 16
+  shuffle: true
+  dataset:
+    repeat: 1
+    loader:
+      loaderFuncName: div2k_hr
+      loaderFuncArgs:
+        storage_type: disk
+        phase: train
+        load_to_memory_config:
+          max_memory_usage: null  # MB
+          color_mode: RGB
+          verbose: true
+        split:
+          splitFuncName: div2k_hr
+          splitFuncArgs:
+            data_path: /dataroot/liujiang/data/datasets/DF2K
+            train_ratio: 0.9
+            seed: 42
+    handler:
+      handlerFuncName: div2k_hr
+      handlerFuncArgs:
+        storage_type: disk
+        color_mode: RGB
+        phase: train
+  collate:
+    collateFuncName: div2k_hr
+    collateFuncArgs:
+      phase: train
+      patch_size: 128
+      min_scale: 1
+      max_scale: 4
+      scale: 2
+      interp_mode: bicubic
+
+val_data_loader:
+  num_workers: 4
+  batch_size: 16
+  shuffle: false
+  dataset:
+    repeat: 1
+    loader:
+      loaderFuncName: div2k_hr
+      loaderFuncArgs:
+        storage_type: disk
+        phase: val
+        load_to_memory_config:
+          max_memory_usage: null  # MB
+          color_mode: RGB
+          verbose: true
+        split:
+          splitFuncName: div2k_hr
+          splitFuncArgs:
+            data_path: /dataroot/liujiang/data/datasets/DF2K
+            train_ratio: 0.9
+            seed: 42
+    handler:
+      handlerFuncName: div2k_hr
+      handlerFuncArgs:
+        storage_type: disk
+        color_mode: RGB
+        phase: val
+  collate:
+    collateFuncName: div2k_hr
+    collateFuncArgs:
+      phase: val
+      patch_size: 128
+      min_scale: 1
+      max_scale: 4
+      scale: 2
+      interp_mode: bicubic
+
+model:
+  modelClsName: base_model
+  modelClsArgs:
+    phase: train
+    local_patch_k: 3
+    encoder:
+      encoderClsName: base_encoder
+      encoderArgs:
+        in_channels: 3
+        out_channels: 64
+    decoder:
+      decoderClsName: base_decoder
+      decoderArgs:
+        in_channels: 576   # local_patch_k^2 = 3^2 * 64 = 576
+        out_channels: 3

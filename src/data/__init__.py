@@ -6,12 +6,9 @@ from .dataset import CustomDataset
 from .collate import get_collate_by_name
 
 dataloader_defaultConfig = {
-    'name': 'div2k_hr',
-    'dataloader':{
-        'num_workers': 4,
-        'batch_size': 16,
-        'shuffle': True,
-    },
+    'num_workers': 4,
+    'batch_size': 16,
+    'shuffle': True,
     'dataset':{
         'repeat': 1,
         'loader':{
@@ -50,16 +47,16 @@ dataloader_defaultConfig = {
             'patch_size': 128,
             'min_scale': 1,
             'max_scale': 4,
+            'scale': 2,
             'interp_mode': 'bicubic'
         }
     }
 }
-def get_dataloader():
-    dataloader_config = dataloader_defaultConfig.get('dataloader', {})
-    dataset_config = dataloader_defaultConfig.get('dataset', {})
+def get_dataloader(dataloader_config=dataloader_defaultConfig):
+    dataset_config = dataloader_config.get('dataset', {})
     dataset = CustomDataset(dataset_config=dataset_config)
 
-    collate_config = dataloader_defaultConfig.get('collate', {})
+    collate_config = dataloader_config.get('collate', {})
     collate_func_name = collate_config.get('collateFuncName', 'div2k_hr')
     collate_func_args = collate_config.get('collateFuncArgs', {})
     collate_fn = partial(get_collate_by_name(collate_func_name), collate_config=collate_func_args)
