@@ -78,6 +78,12 @@ def _load_images_to_memory(image_paths, max_memory_usage=None, color_mode='RGB',
 
     return images
 
+def get_loader_by_name(name):
+    loader = registered_loaders.get(name)
+    if loader is None:
+        raise ValueError(f"Loader with name '{name}' is not registered.")
+    return loader
+
 # 自动注册所有 loader
 def register_all_loaders():
     """
@@ -95,9 +101,3 @@ def register_all_loaders():
         # import 模块（相对于 loaders 包）
         importlib.import_module(f".{module_name}", package=__name__)
 register_all_loaders()
-
-def get_loader_by_name(name):
-    loader = registered_loaders.get(name)
-    if loader is None:
-        raise ValueError(f"Loader with name '{name}' is not registered.")
-    return loader

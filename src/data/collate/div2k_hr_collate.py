@@ -48,7 +48,7 @@ def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
             "hr": hr_tensor,   # HR crop batch
             "lr": lr_tensor,   # LR crop batch
             "scale": scale,
-            "phase": phase
+            # "phase": phase
         }
 
     # ------------------------------
@@ -65,7 +65,7 @@ def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
             "hr": None,
             "lr": lr_tensor,
             "scale": scale,
-            "phase": phase
+            # "phase": phase
         }
 
     else:
