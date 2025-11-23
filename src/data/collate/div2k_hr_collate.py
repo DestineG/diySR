@@ -54,12 +54,36 @@ def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
     # 2 ⬇️ Test: HR-only（你给 batch = HR 堆叠 → 需要下采样成 LR）
     # ======================================================
     elif phase == 'test':  
-        hr_tensor = torch.stack(batch, dim=0)
+        hr_list = []
+        lr_list = []
         scale = collate_config.get('scale', 2)
+        max_hw_sum = 2040 + 1356  # H+W 最大和
 
-        lr_tensor = F.interpolate(
-            hr_tensor, scale_factor=1/scale, mode=interp_mode, align_corners=False
-        )
+        for hr in batch:  # batch 是 list，每个元素 [C,H,W]
+            C, H, W = hr.shape
+
+            # 判断 H+W 是否超过阈值
+            if H + W > max_hw_sum:
+                if W > H:
+                    crop_h, crop_w = 1356, 2040
+                else:
+                    crop_h, crop_w = 2040, 1356
+
+                # 中心裁剪
+                start_h = (H - crop_h) // 2
+                start_w = (W - crop_w) // 2
+                hr = hr[:, start_h:start_h+crop_h, start_w:start_w+crop_w]
+
+            # 下采样生成 LR
+            lr_h = hr.shape[-2] // scale
+            lr_w = hr.shape[-1] // scale
+            lr = F.interpolate(hr.unsqueeze(0), size=(lr_h, lr_w), mode=interp_mode, align_corners=False).squeeze(0)
+
+            hr_list.append(hr)
+            lr_list.append(lr)
+
+        hr_tensor = torch.stack(hr_list, dim=0)
+        lr_tensor = torch.stack(lr_list, dim=0)
 
         return {
             "hr": hr_tensor,
