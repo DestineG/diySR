@@ -11,6 +11,7 @@ train_data_loader:
       loaderFuncArgs:
         storage_type: memory
         phase: train
+        inference_dir: null
         load_to_memory_config:
           max_memory_usage: null  # MB
           color_mode: RGB

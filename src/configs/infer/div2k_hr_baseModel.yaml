@@ -1,6 +1,6 @@
-# /src/configs/test/div2k_hr_baseModel.yaml
+# /src/configs/infer/div2k_hr_baseModel.yaml
 
-test_data_loader:
+infer_data_loader:
   num_workers: 4
   batch_size: 1
   shuffle: false
@@ -10,8 +10,8 @@ test_data_loader:
       loaderFuncName: div2k_hr
       loaderFuncArgs:
         storage_type: memory
-        phase: test
-        inference_dir: null
+        phase: infer
+        inference_dir: ./input
         load_to_memory_config:
           max_memory_usage: null  # MB
           color_mode: RGB
@@ -27,12 +27,12 @@ test_data_loader:
       handlerFuncArgs:
         storage_type: memory
         color_mode: RGB
-        phase: test
+        phase: infer
         repeat: False
   collate:
     collateFuncName: div2k_hr
     collateFuncArgs:
-      phase: test
+      phase: infer
       patch_size: 128
       min_scale: 1
       max_scale: 4
@@ -42,7 +42,7 @@ test_data_loader:
 model:
   modelClsName: base_model
   modelClsArgs:
-    phase: test
+    phase: infer
     weight_path: ./checkpoints/best_model.pth
     local_patch_k: 3
     encoder:

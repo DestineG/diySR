@@ -85,7 +85,7 @@ def div2k_hr_loader(loader_config=None):
                 max_memory_usage=load_to_memory_config.get('max_memory_usage'),
                 color_mode=load_to_memory_config.get('color_mode', 'RGB'),
                 verbose=load_to_memory_config.get('verbose', True)
-            )
+            ), len(infer_paths)
         else:
             raise ValueError(f"Unknown storage_type: {storage_type}")
     else:

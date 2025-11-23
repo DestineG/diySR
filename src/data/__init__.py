@@ -16,6 +16,7 @@ dataloader_defaultConfig = {
             'loaderFuncArgs': {
                 'storage_type': 'disk',
                 'phase': 'train',
+                'inference_dir': None,
                 'load_to_memory_config': {
                     'max_memory_usage': None,  # MB
                     'color_mode': 'RGB',
