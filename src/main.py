@@ -35,7 +35,7 @@ def train(model, train_loader, val_loader, device='cuda', num_epochs=100, lr=1e-
     
     for epoch in range(num_epochs):
         model.train()
-        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}")
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}", ascii=True)
         for batch in pbar:
             batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k,v in batch.items()}
             optimizer.zero_grad()
@@ -49,7 +49,7 @@ def train(model, train_loader, val_loader, device='cuda', num_epochs=100, lr=1e-
         model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            for batch in val_loader:
+            for batch in tqdm(val_loader, desc="Validation", ascii=True):
                 batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k,v in batch.items()}
                 out = model(batch)
                 val_loss += criterion(out['decoded'], batch['hr']).item()

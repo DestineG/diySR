@@ -36,7 +36,8 @@ dataloader_defaultConfig = {
             'handlerFuncArgs': {
                 'storage_type': 'disk',
                 'color_mode': 'RGB',
-                'phase': 'train'
+                'phase': 'train',
+                'repeat': True
             }
         }
     },

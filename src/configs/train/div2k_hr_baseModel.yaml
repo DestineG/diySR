@@ -5,7 +5,7 @@ train_data_loader:
   batch_size: 16
   shuffle: true
   dataset:
-    repeat: 1
+    repeat: 3
     loader:
       loaderFuncName: div2k_hr
       loaderFuncArgs:
@@ -27,6 +27,7 @@ train_data_loader:
         storage_type: disk
         color_mode: RGB
         phase: train
+        repeat: True
   collate:
     collateFuncName: div2k_hr
     collateFuncArgs:
@@ -64,6 +65,7 @@ val_data_loader:
         storage_type: disk
         color_mode: RGB
         phase: val
+        repeat: False
   collate:
     collateFuncName: div2k_hr
     collateFuncArgs:

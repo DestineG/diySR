@@ -33,27 +33,29 @@ dataset_defaultConfig = {
         'handlerFuncArgs': {
             'storage_type': 'disk',
             'color_mode': 'RGB',
-            'phase': 'train'
+            'phase': 'train',
+            'repeat': True
         }
     }
 }
 class CustomDataset(Dataset):
     def __init__(self, dataset_config=dataset_defaultConfig):
+        self.dataset_config = dataset_config
         # 数据加载
-        self.loader = dataset_config.get('loader', {})
+        self.loader = self.dataset_config.get('loader', {})
         loader_name = self.loader.get('loaderFuncName', 'div2k_hr')
         loader_config = self.loader.get('loaderFuncArgs', {})
         self.data_loader = get_loader_by_name(loader_name)
         self.samples, self.num_samples = self.data_loader(loader_config)
 
         # 数据处理
-        self.handler = dataset_config.get('handler', {})
+        self.handler = self.dataset_config.get('handler', {})
         handler_name = self.handler.get('handlerFuncName', 'div2k_hr')
         self.handler_config = self.handler.get('handlerFuncArgs', {})
         self.data_handler = get_handler_by_name(handler_name)
 
     def __len__(self):
-        return len(self.samples)*self.handler_config.get('repeat', 1)
+        return len(self.samples)*self.dataset_config.get('repeat', 1)
 
     def __getitem__(self, idx):
         return self.data_handler(idx, self.samples, self.handler_config)
