@@ -3,6 +3,7 @@
 import os
 import glob
 import importlib
+import torch
 import torch.nn as nn
 
 registered_models = {}
@@ -28,6 +29,28 @@ class Model(nn.Module):
 
     def forward(self, x):
         raise NotImplementedError("Forward method not implemented.")
+    
+    def save_checkpoint(self, epoch, model_state_dict, optimizer_state_dict, val_loss, path):
+        torch.save(
+            {
+                'epoch': epoch,
+                'model_state_dict': model_state_dict,
+                'optimizer_state_dict': optimizer_state_dict,
+                'val_loss': val_loss
+            }, path)
+
+    def setup(self):
+        weight_path = self.config.get('weight_path', None)
+        if weight_path is not None and os.path.isfile(weight_path):
+            checkpoint = torch.load(weight_path, map_location='cpu')
+            self.load_state_dict(checkpoint['model_state_dict'])
+            epoch = checkpoint.get('epoch', 0)
+            optim_state = checkpoint.get('optimizer_state_dict', None)
+            val_loss = checkpoint.get('val_loss', None)
+
+            return epoch, optim_state, val_loss
+        else:
+            return 0, None, None
 
 # 自动注册所有model
 def register_all_models():

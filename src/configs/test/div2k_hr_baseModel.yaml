@@ -1,46 +1,8 @@
-# /src/configs/train/div2k_hr_baseModel.yaml
+# /src/configs/test/div2k_hr_baseModel.yaml
 
-train_data_loader:
+test_data_loader:
   num_workers: 4
-  batch_size: 16
-  shuffle: true
-  dataset:
-    repeat: 10
-    loader:
-      loaderFuncName: div2k_hr
-      loaderFuncArgs:
-        storage_type: memory
-        phase: train
-        load_to_memory_config:
-          max_memory_usage: null  # MB
-          color_mode: RGB
-          verbose: true
-        split:
-          splitFuncName: div2k_hr
-          splitFuncArgs:
-            data_path: /dataroot/liujiang/data/datasets/DF2K
-            train_ratio: 0.9
-            seed: 42
-    handler:
-      handlerFuncName: div2k_hr
-      handlerFuncArgs:
-        storage_type: memory
-        color_mode: RGB
-        phase: train
-        repeat: True
-  collate:
-    collateFuncName: div2k_hr
-    collateFuncArgs:
-      phase: train
-      patch_size: 128
-      min_scale: 1
-      max_scale: 4
-      scale: 2
-      interp_mode: bicubic
-
-val_data_loader:
-  num_workers: 4
-  batch_size: 16
+  batch_size: 1
   shuffle: false
   dataset:
     repeat: 1
@@ -48,7 +10,7 @@ val_data_loader:
       loaderFuncName: div2k_hr
       loaderFuncArgs:
         storage_type: memory
-        phase: val
+        phase: test
         load_to_memory_config:
           max_memory_usage: null  # MB
           color_mode: RGB
@@ -64,12 +26,12 @@ val_data_loader:
       handlerFuncArgs:
         storage_type: memory
         color_mode: RGB
-        phase: val
-        repeat: false
+        phase: test
+        repeat: False
   collate:
     collateFuncName: div2k_hr
     collateFuncArgs:
-      phase: val
+      phase: test
       patch_size: 128
       min_scale: 1
       max_scale: 4
@@ -79,8 +41,8 @@ val_data_loader:
 model:
   modelClsName: base_model
   modelClsArgs:
-    phase: train
-    weight_path: null
+    phase: test
+    weight_path: ./checkpoints/best_model.pth
     local_patch_k: 3
     encoder:
       encoderClsName: base_encoder

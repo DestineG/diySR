@@ -45,14 +45,15 @@ base_model_defaultConfig = {
 class BaseModel(Model):
     def __init__(self, model_config=base_model_defaultConfig):
         super(BaseModel, self).__init__()
-        self.phase = model_config.get('phase', 'train')
+        self.config = model_config
+        self.phase = self.config.get('phase', 'train')
 
-        self.encoder_config = model_config.get('encoder', {})
+        self.encoder_config = self.config.get('encoder', {})
         self.encoder_name = self.encoder_config.get('encoderClsName', 'base_encoder')
         self.encoder_args = self.encoder_config.get('encoderArgs', {})
         self.encoder = get_encoder_by_name(self.encoder_name)(encoder_config=self.encoder_args)
 
-        self.decoder_config = model_config.get('decoder', {})
+        self.decoder_config = self.config.get('decoder', {})
         self.decoder_name = self.decoder_config.get('decoderClsName', 'base_decoder')
         self.decoder_args = self.decoder_config.get('decoderArgs', {})
         self.decoder = get_decoder_by_name(self.decoder_name)(decoder_config=self.decoder_args)
@@ -75,12 +76,12 @@ class BaseModel(Model):
         # ----------- TEST INFERENCE: use scale factor ---------------
         else:
             scale = x['scale']
-            out_base = F.interpolate(
-                lr,
-                scale_factor=scale,
-                mode='bicubic',
-                align_corners=False
-            )
+            # out_base = F.interpolate(
+            #     lr,
+            #     scale_factor=scale,
+            #     mode='bicubic',
+            #     align_corners=False
+            # )
             target_h, target_w = scale * lr.shape[2], scale * lr.shape[3]
 
         # ----------- Encoder + Local Feature -----------

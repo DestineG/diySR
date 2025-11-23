@@ -10,6 +10,7 @@ from src.utils.data_split import registered_splits
 div2k_hr_defaultConfig = {
     'storage_type': 'disk',
     'phase': 'train',
+    'inference_dir': None,
     'load_to_memory_config': {
         'max_memory_usage': None,  # MB
         'color_mode': 'RGB',
@@ -36,16 +37,14 @@ def div2k_hr_loader(loader_config=None):
     storage_type = loader_config.get('storage_type', 'disk')
     load_to_memory_config = loader_config.get('load_to_memory_config', {})
 
-    split_func_name = loader_config['split']['splitFuncName']
-    split_func_args = loader_config['split']['splitFuncArgs']
-    split_constructor = registered_splits.get(split_func_name)
-
-    if split_constructor is None:
-        raise RuntimeError(f"Split function '{split_func_name}' not found.")
-
-    split_data = split_constructor(**split_func_args)
-
     if phase in ['train', 'val', 'test']:
+        split_func_name = loader_config['split']['splitFuncName']
+        split_func_args = loader_config['split']['splitFuncArgs']
+        split_constructor = registered_splits.get(split_func_name)
+        if split_constructor is None:
+            raise RuntimeError(f"Split function '{split_func_name}' not found.")
+        split_data = split_constructor(**split_func_args)
+
         split_type = split_data.get('split_type', {})
         if split_type == {} and not split_type.get(phase, False):
             raise ValueError(f"Split type for phase '{phase}' is not defined or empty.")
@@ -70,7 +69,14 @@ def div2k_hr_loader(loader_config=None):
             raise ValueError(f"Unknown storage_type: {storage_type}")
 
     elif phase == 'infer':
-        infer_paths = split_data.get('infer_paths', [])
+        inference_dir = loader_config.get('inference_dir', None)
+        if inference_dir is None:
+            raise ValueError("inference_dir must be specified for inference phase.")
+        infer_paths = sorted([
+            os.path.join(inference_dir, p)
+            for p in os.listdir(inference_dir)
+            if p.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.tiff'))
+        ])
         if storage_type == 'disk':
             return infer_paths
         elif storage_type == 'memory':
