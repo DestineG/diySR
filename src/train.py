@@ -31,7 +31,7 @@ def train(model, train_loader, val_loader, device='cuda', num_epochs=100, lr=1e-
     os.makedirs(log_dir, exist_ok=True)
     
     model = model.to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = optim.Adam(model.parameters(), lr=lr)
     
     # 如果有保存的 optimizer 状态，则恢复
     if optimizer_state is not None:
