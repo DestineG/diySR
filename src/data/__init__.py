@@ -50,7 +50,12 @@ dataloader_defaultConfig = {
             'min_scale': 1,
             'max_scale': 4,
             'scale': 2,
-            'interp_mode': 'bicubic'
+            'interp_mode': 'bicubic',
+            'normalize_config': {
+                'normalize': True,               # 是否归一化
+                'mean': [0.5, 0.5, 0.5],         # 图像通道均值，RGB 顺序
+                'std': [0.5, 0.5, 0.5]           # 图像通道标准差
+            }
         }
     }
 }

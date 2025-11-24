@@ -11,13 +11,19 @@ div2k_hr_defaultConfig = {
     'min_scale': 1,
     'max_scale': 4,
     'scale': 2,
-    'interp_mode': 'bicubic'
+    'interp_mode': 'bicubic',
+    'normalize_config': {
+        'normalize': True,               # 是否归一化
+        'mean': [0.5, 0.5, 0.5],         # 图像通道均值，RGB 顺序
+        'std': [0.5, 0.5, 0.5]           # 图像通道标准差
+    }
 }
 
 @register_collate('div2k_hr')
 def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
     phase = collate_config.get('phase', 'train')
     interp_mode = collate_config.get('interp_mode', 'bicubic')
+    normalize_config = collate_config.get('normalize_config', {})
 
     # ======================================================
     # 1 ⬇️ Training / Validation（输入是 HR，做随机 crop）
@@ -43,6 +49,12 @@ def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
         lr_tensor = F.interpolate(
             hr_tensor, scale_factor=1/scale, mode=interp_mode, align_corners=False
         )
+        
+        if normalize_config.get('normalize', False):
+            mean = torch.tensor(normalize_config.get('mean', [0.5, 0.5, 0.5]), device=hr_tensor.device).view(1, -1, 1, 1)
+            std = torch.tensor(normalize_config.get('std', [0.5, 0.5, 0.5]), device=hr_tensor.device).view(1, -1, 1, 1)
+            hr_tensor = (hr_tensor / 255.0 - mean) / std
+            lr_tensor = (lr_tensor / 255.0 - mean) / std
 
         return {
             "hr": hr_tensor,

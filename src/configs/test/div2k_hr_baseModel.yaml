@@ -38,6 +38,10 @@ test_data_loader:
       max_scale: 4
       scale: 2
       interp_mode: bicubic
+      normalize_config:
+        normalize: true
+        mean: [0.5, 0.5, 0.5]
+        std: [0.5, 0.5, 0.5]
 
 model:
   modelClsName: base_model

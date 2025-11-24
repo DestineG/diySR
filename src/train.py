@@ -58,20 +58,20 @@ def train(model, train_loader, val_loader, device='cuda', num_epochs=100, lr=1e-
             
             pbar.set_postfix({'loss': loss.item()})
             
-            writer.add_scalar('Train/StepLoss', loss.item(), global_step)
+            writer.add_scalar('Train/TrainStepLoss', loss.item(), global_step)
             
             if global_step % img_log_step == 0:
                 lr_img = vutils.make_grid(batch['lr'][:4], normalize=True, scale_each=True)
                 hr_img = vutils.make_grid(batch['hr'][:4], normalize=True, scale_each=True)
                 pred_img = vutils.make_grid(out['decoded'][:4], normalize=True, scale_each=True)
-                writer.add_image('Input/LR', lr_img, global_step)
-                writer.add_image('Output/Pred', pred_img, global_step)
-                writer.add_image('Target/HR', hr_img, global_step)
+                writer.add_image('Images/LR', lr_img, global_step)
+                writer.add_image('Images/Pred', pred_img, global_step)
+                writer.add_image('Images/HR', hr_img, global_step)
             
             global_step += 1
         
         epoch_train_loss = running_loss / len(train_loader)
-        writer.add_scalar('Train/EpochLoss', epoch_train_loss, epoch)
+        writer.add_scalar('Train/TrainEpochLoss', epoch_train_loss, epoch)
         
         # 验证
         model.eval()
@@ -82,7 +82,7 @@ def train(model, train_loader, val_loader, device='cuda', num_epochs=100, lr=1e-
                 out = model(batch)
                 val_loss_epoch += criterion(out['decoded'], batch['hr']).item()
         val_loss_epoch /= len(val_loader)
-        writer.add_scalar('Val/EpochLoss', val_loss_epoch, epoch)
+        writer.add_scalar('Train/ValEpochLoss', val_loss_epoch, epoch)
         print(f"Epoch {epoch+1} validation loss: {val_loss_epoch:.6f}")
         
         # 保存最优权重
@@ -96,7 +96,7 @@ def train(model, train_loader, val_loader, device='cuda', num_epochs=100, lr=1e-
 
 
 # -----------------------------
-# 3️⃣ 主函数
+# 3️⃣ 主函数 python -m src.train
 # tensorboard --logdir=./logs
 # -----------------------------
 if __name__ == "__main__":

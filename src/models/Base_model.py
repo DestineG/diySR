@@ -106,5 +106,6 @@ class BaseModel(Model):
         decoded = self.decoder(local_feature)
 
         return {
+            'encoded': encoded,
             'decoded': decoded
         }
