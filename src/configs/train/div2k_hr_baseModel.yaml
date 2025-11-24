@@ -81,7 +81,7 @@ model:
   modelClsName: base_model
   modelClsArgs:
     phase: train
-    weight_path: null
+    weight_path: ./checkpoints/best_model.pth
     local_patch_k: 3
     encoder:
       encoderClsName: base_encoder

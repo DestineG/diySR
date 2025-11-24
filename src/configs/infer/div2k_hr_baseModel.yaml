@@ -11,7 +11,7 @@ infer_data_loader:
       loaderFuncArgs:
         storage_type: memory
         phase: infer
-        inference_dir: ./input
+        inference_dir: ./figure/input
         load_to_memory_config:
           max_memory_usage: null  # MB
           color_mode: RGB

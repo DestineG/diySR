@@ -22,7 +22,7 @@ def load_config(yaml_path):
 # -----------------------------
 # 3️⃣ 推理函数
 # -----------------------------
-def infer(model, test_loader, device='cuda', output_dir='./output'):
+def infer(model, test_loader, device='cuda', output_dir='./figure/output'):
     os.makedirs(output_dir, exist_ok=True)
     model = model.to(device)
     model.eval()

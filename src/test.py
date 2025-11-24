@@ -94,8 +94,8 @@ def test(model, test_loader, device='cuda'):
 # -----------------------------
 # 4️⃣ 主函数 python -m src.test
 # -----------------------------
-# Average PSNR: 31.67 dB
-# Average SSIM: 0.9096
+# Average PSNR: 32.19 dB
+# Average SSIM: 0.9147
 if __name__ == "__main__":
     yaml_path = './src/configs/test/div2k_hr_baseModel.yaml'
     test_loader_cfg, model_cfg = load_config(yaml_path)
