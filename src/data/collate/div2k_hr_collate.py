@@ -51,8 +51,8 @@ def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
         )
         
         if normalize_config.get('normalize', False):
-            mean = torch.tensor(normalize_config.get('mean', [0.5, 0.5, 0.5]), device=hr_tensor.device).view(1, -1, 1, 1)
-            std = torch.tensor(normalize_config.get('std', [0.5, 0.5, 0.5]), device=hr_tensor.device).view(1, -1, 1, 1)
+            mean = torch.tensor(normalize_config.get('mean', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
+            std = torch.tensor(normalize_config.get('std', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
             hr_tensor = (hr_tensor / 255.0 - mean) / std
             lr_tensor = (lr_tensor / 255.0 - mean) / std
 
@@ -97,6 +97,12 @@ def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
         hr_tensor = torch.stack(hr_list, dim=0)
         lr_tensor = torch.stack(lr_list, dim=0)
 
+        if normalize_config.get('normalize', False):
+            mean = torch.tensor(normalize_config.get('mean', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
+            std = torch.tensor(normalize_config.get('std', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
+            hr_tensor = (hr_tensor / 255.0 - mean) / std
+            lr_tensor = (lr_tensor / 255.0 - mean) / std
+
         return {
             "hr": hr_tensor,
             "lr": lr_tensor,
@@ -109,6 +115,11 @@ def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
     elif phase == 'infer':
         lr_tensor = torch.stack(batch, dim=0)
         scale = collate_config.get('scale', 2)
+
+        if normalize_config.get('normalize', False):
+            mean = torch.tensor(normalize_config.get('mean', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
+            std = torch.tensor(normalize_config.get('std', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
+            lr_tensor = (lr_tensor / 255.0 - mean) / std
 
         return {
             "hr": None,

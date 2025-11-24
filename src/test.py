@@ -42,7 +42,7 @@ def calc_ssim(pred, hr):
 # -----------------------------
 # 3️⃣ 测试函数
 # -----------------------------
-def test(model, test_loader, device='cuda'):
+def test(model, test_loader, normalize_config=None, device='cuda'):
     model = model.to(device)
     model.eval()
 
@@ -58,8 +58,17 @@ def test(model, test_loader, device='cuda'):
 
         with torch.no_grad():
             # out: decoded
-            out = model(batch)   # out = [B,C,H,W] assumed 0~255
+            out = model(batch)   # out = [B,C,H,W]
 
+        if normalize_config is not None and normalize_config.get('normalize', False):
+            normalize_mean = normalize_config.get('mean', [0.5, 0.5, 0.5])
+            normalize_std = normalize_config.get('std', [0.5, 0.5, 0.5])
+            mean = torch.tensor(normalize_mean, device=out['decoded'].device).view(1, -1, 1, 1)
+            std = torch.tensor(normalize_std, device=out['decoded'].device).view(1, -1, 1, 1)
+            # 反归一化
+            out['decoded'] = (out['decoded'] * std + mean) * 255.0
+            if batch["hr"] is not None:
+                batch["hr"] = (batch["hr"] * std + mean) * 255.0
         pred = out["decoded"].clamp(0, 255)
         hr = batch["hr"].clamp(0, 255) if batch["hr"] is not None else None
 
@@ -94,11 +103,12 @@ def test(model, test_loader, device='cuda'):
 # -----------------------------
 # 4️⃣ 主函数 python -m src.test
 # -----------------------------
-# Average PSNR: 32.19 dB
-# Average SSIM: 0.9147
+# 非标准化: Average PSNR: 32.19 dB, Average SSIM: 0.9147
+# 标准化: Average PSNR: 31.57 dB, Average SSIM: 0.9036
 if __name__ == "__main__":
     yaml_path = './src/configs/test/div2k_hr_baseModel.yaml'
     test_loader_cfg, model_cfg = load_config(yaml_path)
+    normalize_config = test_loader_cfg.get('collate').get('collateFuncArgs').get('normalize_config')
 
     # dataloader
     test_loader = get_dataloader(test_loader_cfg)
@@ -110,4 +120,4 @@ if __name__ == "__main__":
     model.setup()
 
     # test
-    test(model, test_loader, device='cuda')
+    test(model, test_loader, normalize_config=normalize_config, device='cuda')

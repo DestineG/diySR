@@ -22,7 +22,7 @@ def load_config(yaml_path):
 # -----------------------------
 # 3️⃣ 推理函数
 # -----------------------------
-def infer(model, test_loader, device='cuda', output_dir='./figure/output'):
+def infer(model, test_loader, normalize_config=None, device='cuda', output_dir='./figure/output'):
     os.makedirs(output_dir, exist_ok=True)
     model = model.to(device)
     model.eval()
@@ -33,9 +33,20 @@ def infer(model, test_loader, device='cuda', output_dir='./figure/output'):
         batch = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in batch.items()}
 
         with torch.no_grad():
-            out = model(batch)  # out = [B,C,H,W] assumed 0~255
+            out = model(batch)  # out = [B,C,H,W]
+
+        if normalize_config is not None and normalize_config.get('normalize', False):
+            normalize_mean = normalize_config.get('mean', [0.5, 0.5, 0.5])
+            normalize_std = normalize_config.get('std', [0.5, 0.5, 0.5])
+            mean = torch.tensor(normalize_mean, device=out['decoded'].device).view(1, -1, 1, 1)
+            std = torch.tensor(normalize_std, device=out['decoded'].device).view(1, -1, 1, 1)
+            # 反归一化
+            out['decoded'] = (out['decoded'] * std + mean) * 255.0
+            if batch["hr"] is not None:
+                batch["hr"] = (batch["hr"] * std + mean) * 255.0
 
         pred = out["decoded"].clamp(0, 255)
+
 
         # -----------------------------
         # 保存结果
@@ -54,6 +65,7 @@ def infer(model, test_loader, device='cuda', output_dir='./figure/output'):
 if __name__ == "__main__":
     yaml_path = './src/configs/infer/div2k_hr_baseModel.yaml'
     infer_loader_cfg, model_cfg = load_config(yaml_path)
+    normalize_config = infer_loader_cfg.get('collate').get('collateFuncArgs').get('normalize_config')
 
     # dataloader
     infer_loader = get_dataloader(infer_loader_cfg)
@@ -65,4 +77,4 @@ if __name__ == "__main__":
     model.setup()
 
     # infer
-    infer(model, infer_loader, device='cuda')
+    infer(model, infer_loader, normalize_config=normalize_config, device='cuda')
