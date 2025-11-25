@@ -59,7 +59,7 @@ def infer(model, test_loader, normalize_config=None, device='cuda', output_dir='
             # scale到0~1再保存
             vutils.save_image(pred[i] / 255.0, save_path)
 
-    print(f"Testing completed. Results saved in: {output_dir}")
+    print(f"Infering completed. Results saved in: {output_dir}")
 
 
 # -----------------------------

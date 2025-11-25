@@ -111,7 +111,7 @@ def train(model, train_loader, val_loader, train_config=None):
             
             pbar.set_postfix({'loss': loss.item()})
             
-            writer.add_scalar('Loss/TrainStep', loss.item(), global_step)
+            writer.add_scalar('Loss/StepTrain', loss.item(), global_step)
             
             if global_step % img_log_step == 0:
                 lr_img = vutils.make_grid(batch['lr'][:4], normalize=True, scale_each=True)
