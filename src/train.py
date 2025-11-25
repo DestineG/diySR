@@ -111,7 +111,7 @@ def train(model, train_loader, val_loader, train_config=None):
             
             pbar.set_postfix({'loss': loss.item()})
             
-            writer.add_scalar('TrainStepLoss', loss.item(), global_step)
+            writer.add_scalar('Loss/TrainStep', loss.item(), global_step)
             
             if global_step % img_log_step == 0:
                 lr_img = vutils.make_grid(batch['lr'][:4], normalize=True, scale_each=True)
@@ -134,7 +134,7 @@ def train(model, train_loader, val_loader, train_config=None):
                 out = model(batch)
                 val_loss_epoch += criterion(out['decoded'], batch['hr']).item()
         val_loss_epoch /= len(val_loader)
-        writer.add_scalars('EpochLoss', {
+        writer.add_scalars('Loss/Epoch', {
             'Train': epoch_train_loss,
             'Val': val_loss_epoch
         }, epoch)
