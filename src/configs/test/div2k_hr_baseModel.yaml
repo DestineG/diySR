@@ -1,5 +1,8 @@
 # /src/configs/test/div2k_hr_baseModel.yaml
 
+common:
+  storage_type: memory
+
 test_data_loader:
   num_workers: 4
   batch_size: 1
@@ -9,7 +12,7 @@ test_data_loader:
     loader:
       loaderFuncName: div2k_hr
       loaderFuncArgs:
-        storage_type: memory
+        storage_type: ${common.storage_type}
         phase: test
         inference_dir: null
         load_to_memory_config:
@@ -25,7 +28,7 @@ test_data_loader:
     handler:
       handlerFuncName: div2k_hr
       handlerFuncArgs:
-        storage_type: memory
+        storage_type: ${common.storage_type}
         color_mode: RGB
         phase: test
         repeat: False

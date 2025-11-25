@@ -1,7 +1,7 @@
 # src/infer.py
 
 import os
-import yaml
+from omegaconf import OmegaConf
 from tqdm import tqdm
 import torch
 import torchvision.utils as vutils
@@ -13,10 +13,9 @@ from src.models import get_model_by_name
 # 1️⃣ 配置读取函数
 # -----------------------------
 def load_config(yaml_path):
-    with open(yaml_path, 'r') as f:
-        cfg = yaml.safe_load(f)
-    infer_data_loader = cfg['infer_data_loader']
-    model_config = cfg['model']
+    cfg = OmegaConf.load(yaml_path)
+    infer_data_loader = cfg.get('infer_data_loader')
+    model_config = cfg.get('model')
     return infer_data_loader, model_config
 
 # -----------------------------

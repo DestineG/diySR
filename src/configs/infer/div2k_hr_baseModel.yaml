@@ -1,5 +1,8 @@
 # /src/configs/infer/div2k_hr_baseModel.yaml
 
+common:
+  storage_type: memory
+
 infer_data_loader:
   num_workers: 4
   batch_size: 1
@@ -9,7 +12,7 @@ infer_data_loader:
     loader:
       loaderFuncName: div2k_hr
       loaderFuncArgs:
-        storage_type: memory
+        storage_type: ${common.storage_type}
         phase: infer
         inference_dir: ./figure/input
         load_to_memory_config:
@@ -25,7 +28,7 @@ infer_data_loader:
     handler:
       handlerFuncName: div2k_hr
       handlerFuncArgs:
-        storage_type: memory
+        storage_type: ${common.storage_type}
         color_mode: RGB
         phase: infer
         repeat: False

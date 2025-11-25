@@ -46,11 +46,11 @@ class Model(nn.Module):
             self.load_state_dict(checkpoint['model_state_dict'])
             epoch = checkpoint.get('epoch', 0)
             optim_state = checkpoint.get('optimizer_state_dict', None)
-            val_loss = checkpoint.get('val_loss', None)
+            val_loss = checkpoint.get('val_loss', float('inf'))
 
             return epoch, optim_state, val_loss
         else:
-            return 0, None, None
+            return 0, None, float('inf')
 
 # 自动注册所有model
 def register_all_models():

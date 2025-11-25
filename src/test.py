@@ -1,6 +1,6 @@
 # src/test.py
 
-import yaml
+from omegaconf import OmegaConf
 from tqdm import tqdm
 import torch
 
@@ -14,13 +14,16 @@ from src.models import get_model_by_name
 # 1️⃣ 配置读取函数
 # -----------------------------
 def load_config(yaml_path):
-    with open(yaml_path, 'r') as f:
-        cfg = yaml.safe_load(f)
-    test_data_loader = cfg['test_data_loader']
-    model_config = cfg['model']
+    # 加载 YAML
+    cfg = OmegaConf.load(yaml_path)
+
+    # 插值解析
+    OmegaConf.resolve(cfg)
+
+    test_data_loader = cfg.get('test_data_loader')
+    model_config = cfg.get('model')
+
     return test_data_loader, model_config
-
-
 # -----------------------------
 # 2️⃣ PSNR / SSIM 计算函数
 # -----------------------------
@@ -104,7 +107,7 @@ def test(model, test_loader, normalize_config=None, device='cuda'):
 # 4️⃣ 主函数 python -m src.test
 # -----------------------------
 # 非标准化: Average PSNR: 32.19 dB, Average SSIM: 0.9147
-# 标准化: Average PSNR: 31.57 dB, Average SSIM: 0.9036
+# 标准化: Average PSNR: 31.90 dB, Average SSIM: 0.9098
 if __name__ == "__main__":
     yaml_path = './src/configs/test/div2k_hr_baseModel.yaml'
     test_loader_cfg, model_cfg = load_config(yaml_path)
