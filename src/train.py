@@ -147,7 +147,7 @@ def train(model, train_loader, val_loader, train_config=None):
         # 保存最优权重
         if val_loss_epoch < best_val_loss:
             best_val_loss = val_loss_epoch
-            save_path = os.path.join(save_dir, f'best_model.pth')
+            save_path = os.path.join(save_dir, f'epoch_best.pth')
             model.save_checkpoint(epoch+1, model.state_dict(), optimizer.state_dict(), val_loss_epoch, save_path)
             print(f"Saved best model checkpoint at epoch {epoch+1}, val_loss={val_loss_epoch:.6f}")
     

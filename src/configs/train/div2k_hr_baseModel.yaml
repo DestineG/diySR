@@ -53,7 +53,7 @@ val_data_loader:
   batch_size: 16
   shuffle: false
   dataset:
-    repeat: 1
+    repeat: 3
     loader:
       loaderFuncName: div2k_hr
       loaderFuncArgs:
@@ -106,14 +106,14 @@ model:
 train_config:
   resume: ${common.resume}
   weight_path: null
-  experiments_root: ./experiments/
+  experiments_root: ./experiments/div2k_hr_baseModel
   optimizer_state: null
   index_exp: null
   device: cuda
   start_epoch: 0
   max_epochs: 1000
   best_val_loss: null
-  save_interval: 5
+  save_interval: 20
   img_log_step: 200
 
   optimizer:

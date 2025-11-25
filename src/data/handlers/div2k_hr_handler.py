@@ -27,8 +27,17 @@ def div2k_hr_handler(idx, samples, handler_config=div2k_hr_defaultConfig):
             data = _load_image(data, color_mode=handler_config.get('color_mode', 'RGB'))
         data = torch.from_numpy(data).float().permute(2, 0, 1)
         return data
+
+    elif phase == 'val':
+        data = samples[idx % len(samples)] if handler_config.get('repeat', True) else samples[idx]
+
+        storage_type = handler_config.get('storage_type', 'disk')
+        if storage_type == 'disk':
+            data = _load_image(data, color_mode=handler_config.get('color_mode', 'RGB'))
+        data = torch.from_numpy(data).float().permute(2, 0, 1)
+        return data
     
-    elif phase in ['val', 'test']:
+    elif phase == 'test':
         data = samples[idx]
 
         storage_type = handler_config.get('storage_type', 'disk')
