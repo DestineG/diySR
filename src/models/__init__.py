@@ -39,8 +39,7 @@ class Model(nn.Module):
                 'val_loss': val_loss
             }, path)
 
-    def setup(self):
-        weight_path = self.config.get('weight_path', None)
+    def setup(self, weight_path):
         if weight_path is not None and os.path.isfile(weight_path):
             checkpoint = torch.load(weight_path, map_location='cpu')
             self.load_state_dict(checkpoint['model_state_dict'])

@@ -1,7 +1,12 @@
 # /src/configs/train/div2k_hr_baseModel.yaml
 
 common:
-  storage_type: disk
+  storage_type: memory
+  resume: true
+  normalize_config:
+    normalize: true
+    mean: [0.5, 0.5, 0.5]
+    std: [0.5, 0.5, 0.5]
 
 train_data_loader:
   num_workers: 4
@@ -41,10 +46,7 @@ train_data_loader:
       max_scale: 4
       scale: 2
       interp_mode: bilinear
-      normalize_config:
-        normalize: true
-        mean: [0.5, 0.5, 0.5]
-        std: [0.5, 0.5, 0.5]
+      normalize_config: ${common.normalize_config}
 
 val_data_loader:
   num_workers: 4
@@ -83,16 +85,12 @@ val_data_loader:
       max_scale: 4
       scale: 2
       interp_mode: bilinear
-      normalize_config:
-        normalize: true
-        mean: [0.5, 0.5, 0.5]
-        std: [0.5, 0.5, 0.5]
+      normalize_config: ${common.normalize_config}
 
 model:
   modelClsName: base_model
   modelClsArgs:
     phase: train
-    weight_path:
     local_patch_k: 3
     encoder:
       encoderClsName: base_encoder
@@ -106,8 +104,11 @@ model:
         out_channels: 3
 
 train_config:
-  optimizer_state: null
+  resume: ${common.resume}
+  weight_path: null
   experiments_root: ./experiments/
+  optimizer_state: null
+  index_exp: null
   device: cuda
   start_epoch: 0
   max_epochs: 1000

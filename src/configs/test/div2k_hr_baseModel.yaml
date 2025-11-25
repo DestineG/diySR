@@ -50,7 +50,6 @@ model:
   modelClsName: base_model
   modelClsArgs:
     phase: test
-    weight_path: ./checkpoints/best_model.pth
     local_patch_k: 3
     encoder:
       encoderClsName: base_encoder
@@ -62,3 +61,7 @@ model:
       decoderArgs:
         in_channels: 576   # local_patch_k^2 = 3^2 * 64 = 576
         out_channels: 3
+
+test_config:
+  device: cuda
+  weight_path: ./experiments/exp_1/checkpoints/best_model.pth

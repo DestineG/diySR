@@ -14,16 +14,14 @@ from src.models import get_model_by_name
 # 1️⃣ 配置读取函数
 # -----------------------------
 def load_config(yaml_path):
-    # 加载 YAML
     cfg = OmegaConf.load(yaml_path)
+    cfg_dict = OmegaConf.to_container(cfg, resolve=True)
 
-    # 插值解析
-    OmegaConf.resolve(cfg)
+    test_data_loader = cfg_dict.get('test_data_loader')
+    model_config = cfg_dict.get('model')
+    test_config = cfg_dict.get('motest_configdel')
 
-    test_data_loader = cfg.get('test_data_loader')
-    model_config = cfg.get('model')
-
-    return test_data_loader, model_config
+    return test_data_loader, model_config, test_config
 # -----------------------------
 # 2️⃣ PSNR / SSIM 计算函数
 # -----------------------------
@@ -110,17 +108,19 @@ def test(model, test_loader, normalize_config=None, device='cuda'):
 # 标准化: Average PSNR: 31.90 dB, Average SSIM: 0.9098
 if __name__ == "__main__":
     yaml_path = './src/configs/test/div2k_hr_baseModel.yaml'
-    test_loader_cfg, model_cfg = load_config(yaml_path)
+    test_loader_cfg, model_cfg, test_config = load_config(yaml_path)
     normalize_config = test_loader_cfg.get('collate').get('collateFuncArgs').get('normalize_config')
 
     # dataloader
     test_loader = get_dataloader(test_loader_cfg)
 
     # model
-    model_name = model_cfg.get('modelClsName', 'base_model')
-    model_args = model_cfg.get('modelClsArgs', model_cfg)
+    model_name = model_cfg.get('modelClsName')
+    model_args = model_cfg.get('modelClsArgs')
     model = get_model_by_name(model_name)(model_args)
-    model.setup()
+    weight_path = test_config.get('weight_path')
+    model.setup(weight_path)
+    device = test_config.get('device')
 
     # test
-    test(model, test_loader, normalize_config=normalize_config, device='cuda')
+    test(model, test_loader, normalize_config=normalize_config, device=device)

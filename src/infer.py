@@ -14,9 +14,13 @@ from src.models import get_model_by_name
 # -----------------------------
 def load_config(yaml_path):
     cfg = OmegaConf.load(yaml_path)
-    infer_data_loader = cfg.get('infer_data_loader')
-    model_config = cfg.get('model')
-    return infer_data_loader, model_config
+    cfg_dict = OmegaConf.to_container(cfg, resolve=True)
+
+    infer_data_loader = cfg_dict.get('infer_data_loader')
+    model_config = cfg_dict.get('model')
+    infer_config = cfg_dict.get('infer_config')
+
+    return infer_data_loader, model_config, infer_config
 
 # -----------------------------
 # 3️⃣ 推理函数
@@ -63,17 +67,19 @@ def infer(model, test_loader, normalize_config=None, device='cuda', output_dir='
 # -----------------------------
 if __name__ == "__main__":
     yaml_path = './src/configs/infer/div2k_hr_baseModel.yaml'
-    infer_loader_cfg, model_cfg = load_config(yaml_path)
+    infer_loader_cfg, model_cfg, infer_config = load_config(yaml_path)
     normalize_config = infer_loader_cfg.get('collate').get('collateFuncArgs').get('normalize_config')
 
     # dataloader
     infer_loader = get_dataloader(infer_loader_cfg)
 
     # model
-    model_name = model_cfg.get('modelClsName', 'base_model')
-    model_args = model_cfg.get('modelClsArgs', model_cfg)
+    model_name = model_cfg.get('modelClsName')
+    model_args = model_cfg.get('modelClsArgs')
     model = get_model_by_name(model_name)(model_args)
-    model.setup()
+    weight_path = infer_config.get('weight_path')
+    model.setup(weight_path)
+    device = infer_config.get('device')
 
     # infer
-    infer(model, infer_loader, normalize_config=normalize_config, device='cuda')
+    infer(model, infer_loader, normalize_config=normalize_config, device=device)

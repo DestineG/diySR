@@ -17,45 +17,53 @@ from src.models import get_model_by_name
 # 1️⃣ 配置读取函数
 # -----------------------------
 def load_config(yaml_path):
-    # 加载 YAML
     cfg = OmegaConf.load(yaml_path)
+    cfg_dict = OmegaConf.to_container(cfg, resolve=True)
 
-    # 插值解析
-    OmegaConf.resolve(cfg)
-
-    train_data_loader = cfg.get('train_data_loader')
-    val_data_loader = cfg.get('val_data_loader')
-    model_config = cfg.get('model')
-    train_config = cfg.get('train_config')
+    train_data_loader = cfg_dict.get('train_data_loader')
+    val_data_loader = cfg_dict.get('val_data_loader')
+    model_config = cfg_dict.get('model')
+    train_config = cfg_dict.get('train_config')
 
     return train_data_loader, val_data_loader, model_config, train_config
 
-def get_next_exp_dir(log_root):
+def get_next_exp_dir(log_root, index_exp=None):
     os.makedirs(log_root, exist_ok=True)
 
-    # 找到所有 exp_x (x为数字)
-    exp_dirs = [d for d in os.listdir(log_root) if re.match(r"exp_\d+", d)]
+    if index_exp is not None:
+        exp_dir = os.path.join(log_root, f"exp_{index_exp}")
+        if not os.path.exists(exp_dir):
+            os.makedirs(exp_dir)
+        return exp_dir
 
+    exp_dirs = [d for d in os.listdir(log_root) if re.match(r"exp_\d+", d)]
     if not exp_dirs:
         next_id = 1
     else:
-        # 取数字部分最大值
         nums = [int(re.findall(r"\d+", d)[0]) for d in exp_dirs]
         next_id = max(nums) + 1
 
     new_exp_dir = os.path.join(log_root, f"exp_{next_id}")
-    os.makedirs(new_exp_dir, exist_ok=True)
+    os.makedirs(new_exp_dir)
     return new_exp_dir
 
 # -----------------------------
 # 2️⃣ 训练函数
 # -----------------------------
 def train(model, train_loader, val_loader, train_config=None):
+    # 从 checkpoint 恢复状态
+    resume = train_config.get('resume', False)
+    if resume:
+        weight_path = train_config.get('weight_path')
+    else:
+        weight_path = None
+    start_epoch, optimizer_state, best_val_loss = model.setup(weight_path)
+    device = train_config.get('device')
+    model = model.to(device)
 
     optim_config = train_config['optimizer']
     optim_name = optim_config.get('optimizerClsName')
     optim_args = optim_config.get('optimizerArgs')
-    optimizer_state = train_config.get('optimizer_state')
     optimizer = getattr(optim, optim_name)(model.parameters(), **optim_args)
     if optimizer_state is not None:
         optimizer.load_state_dict(optimizer_state)
@@ -71,24 +79,21 @@ def train(model, train_loader, val_loader, train_config=None):
     criterion = getattr(nn, loss_name)(**loss_args)
 
     # 自动创建 exp_xx 目录
-    exp_root = train_config.get('experiments_root', './experiments/')
+    exp_root = train_config.get('experiments_root')
     os.makedirs(exp_root, exist_ok=True)
-    exp_dir = get_next_exp_dir(exp_root)
+    index_exp = train_config.get('index_exp')
+    exp_dir = get_next_exp_dir(exp_root, index_exp)
+    print(f"[INFO] Experiment directory: {exp_dir}")
     save_dir = os.path.join(exp_dir, 'checkpoints')
     log_dir = os.path.join(exp_dir, 'logs')
     os.makedirs(save_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
 
-    # TensorBoard writer
     writer = SummaryWriter(log_dir=log_dir)
 
-    device = train_config.get('device', 'cuda')
-    model = model.to(device)
-    start_epoch = train_config.get('start_epoch', 0)
-    num_epochs = train_config.get('max_epochs', 1000)
-    best_val_loss = train_config.get('best_val_loss', float('inf'))
-    save_interval = train_config.get('save_interval', 5)
-    img_log_step = train_config.get('img_log_step', 200)
+    num_epochs = train_config.get('max_epochs')
+    save_interval = train_config.get('save_interval')
+    img_log_step = train_config.get('img_log_step')
     
     global_step = start_epoch * len(train_loader)  # 从 epoch 对应的 step 开始
     for epoch in range(start_epoch, num_epochs):
@@ -106,7 +111,7 @@ def train(model, train_loader, val_loader, train_config=None):
             
             pbar.set_postfix({'loss': loss.item()})
             
-            writer.add_scalar('Train/TrainStepLoss', loss.item(), global_step)
+            writer.add_scalar('TrainStepLoss', loss.item(), global_step)
             
             if global_step % img_log_step == 0:
                 lr_img = vutils.make_grid(batch['lr'][:4], normalize=True, scale_each=True)
@@ -118,10 +123,8 @@ def train(model, train_loader, val_loader, train_config=None):
             
             global_step += 1
         scheduler.step()
-        
         epoch_train_loss = running_loss / len(train_loader)
-        writer.add_scalar('Train/TrainEpochLoss', epoch_train_loss, epoch)
-        
+
         # 验证
         model.eval()
         val_loss_epoch = 0.0
@@ -131,8 +134,10 @@ def train(model, train_loader, val_loader, train_config=None):
                 out = model(batch)
                 val_loss_epoch += criterion(out['decoded'], batch['hr']).item()
         val_loss_epoch /= len(val_loader)
-        writer.add_scalar('Train/ValEpochLoss', val_loss_epoch, epoch)
-        print(f"Epoch {epoch+1} validation loss: {val_loss_epoch:.6f}")
+        writer.add_scalars('EpochLoss', {
+            'Train': epoch_train_loss,
+            'Val': val_loss_epoch
+        }, epoch)
         
         if (epoch + 1) % save_interval == 0:
             save_path = os.path.join(save_dir, f'epoch_{epoch+1}.pth')
@@ -162,17 +167,9 @@ if __name__ == "__main__":
     val_loader = get_dataloader(val_loader_cfg)
 
     # 构建模型
-    model_name = model_cfg.get('modelClsName', 'base_model')
-    model_args = model_cfg.get('modelClsArgs', model_cfg)
+    model_name = model_cfg.get('modelClsName')
+    model_args = model_cfg.get('modelClsArgs')
     model = get_model_by_name(model_name)(model_args)
-
-    # 从 checkpoint 恢复状态
-    start_epoch, optimizer_state, best_val_loss = model.setup()
-
-    # 保存训练状态到 train_config
-    train_config["optimizer_state"] = optimizer_state
-    train_config["start_epoch"] = start_epoch
-    train_config["best_val_loss"] = best_val_loss
 
     # 启动训练
     train(
