@@ -4,7 +4,7 @@ common:
   storage_type: memory
   resume: true
   normalize_config:
-    normalize: true
+    normalize: false
     mean: [0.5, 0.5, 0.5]
     std: [0.5, 0.5, 0.5]
 
@@ -75,7 +75,7 @@ val_data_loader:
         storage_type: ${common.storage_type}
         color_mode: RGB
         phase: val
-        repeat: false
+        repeat: True
   collate:
     collateFuncName: div2k_hr
     collateFuncArgs:
