@@ -4,3 +4,6 @@
 - 复现论文(liif, lte)
 - 方向：模型轻量化；加速推理；生成质量提高(加入语义引导)
 - 训练器抽象基本完成，准备对data model动手
+- 添加测试指标函数
+- 添加DataModule适配hydra
+- models适配hydra

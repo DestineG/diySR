@@ -1,0 +1,14 @@
+# src/configs/train/conf_0/data/default.yaml
+
+encoder_config:
+  encoderClsName: base_encoder
+  encoderClsArgs:
+    in_channels: 3
+    out_channels: 64
+
+decoder_config:
+  decoderClsName: base_decoder
+  decoderClsArgs:
+    local_patch_k: 3
+    in_channels: 64
+    out_channels: 3

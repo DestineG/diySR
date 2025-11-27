@@ -226,9 +226,10 @@ class Trainer:
 
     def build_train_components(self, optimizer_state=None, scheduler_state=None):
         # optimizer scheduler loss_fn
-        optimizer_config = self.config.get("optimizer_config")
-        scheduler_config = self.config.get("scheduler_config")
-        loss_config = self.config.get("loss_config")
+        component_config = self.config.get("component_config")
+        optimizer_config = component_config.get("optimizer_config")
+        scheduler_config = component_config.get("scheduler_config")
+        loss_config = component_config.get("loss_config")
         optimizer, scheduler, loss_fn = get_train_components(
             model_parameters=self.model.parameters(),
             optimizer_config=optimizer_config,optimizer_state=optimizer_state,
