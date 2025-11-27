@@ -1,13 +1,15 @@
 # src/trainers/trainer.py
 
 import os
+import shutil
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
+from .components import get_train_components
 
-default_config = {}
+
 class Trainer:
-    def __init__(self, model, dm, config=default_config):
+    def __init__(self, model, dm, config={}):
         self.model = model
         self.dm = dm
         self.config = config
@@ -17,20 +19,19 @@ class Trainer:
         self.train_loader, self.val_loader, self.test_loader = self.dm.get_dataloaders()
 
         # 模型 训练状态加载
-        resume = self.config.get("resume", False)
-        checkpoint_dir = self.config.get("checkpoint_dir", "")
+        resume_config = self.config.get("resume_config", {})
+        resume = resume_config.get("resume", False)
+        checkpoint_dir = resume_config.get("resume_from_checkpointDir", None)
         if resume and os.path.isdir(checkpoint_dir):
-            checkpoint_epoch = self.config.get("checkpoint_epoch", 0)
+            checkpoint_epoch = resume_config.get("resume_from_checkpointEpoch", 0)
             epoch, global_step, optimizer_state, scheduler_state, best_val_loss = self.load_fromCheckpoint(
                 epoch=checkpoint_epoch,
                 checkpoint_dir=checkpoint_dir)
         else:
             epoch, global_step, optimizer_state, scheduler_state, best_val_loss = 0, 0, None, None, float("inf")
-        # 优化器 调度器 损失函数构建
-        self.optimizer, self.scheduler = self.build_optimizer_scheduler(
+        self.optimizer, self.scheduler, self.loss_fn = self.build_train_components(
             optimizer_state=optimizer_state,
             scheduler_state=scheduler_state)
-        self.loss_fn = self.build_loss_function()
 
         # 训练超参数设置
         self.device = self.config.get("device", "cpu")
@@ -39,20 +40,41 @@ class Trainer:
         self.best_val_loss = best_val_loss
 
         # 实验记录设置
-        self.experiments_dir = self.config.get("experiment_dir", "./experiments")
-        self.experiment_name = self.config.get("experiment_name", "default_experiment")
-        self.experiment_dir = os.path.join(self.experiments_dir, self.experiment_name)
-        os.makedirs(self.experiment_dir, exist_ok=True)
-        self.log_dir = os.path.join(self.experiment_dir, "logs")
-        self.checkpoint_dir = os.path.join(self.experiment_dir, "checkpoints")
-        os.makedirs(self.log_dir, exist_ok=True)
-        os.makedirs(self.checkpoint_dir, exist_ok=True)
-        self.log_step_interval = self.config.get("log_step", 100)
-        self.save_epoch_interval = self.config.get("save_epoch_interval", 10)
-        self.test_epoch_interval = self.config.get("test_epoch_interval", 20)
+        experiment_config = self.config.get("experiment_config", {})
+        experiments_dir = experiment_config.get("experiment_dir", "./experiments")
+        experiment_name = experiment_config.get("experiment_name", "default_experiment")
+        experiment_dir = os.path.join(experiments_dir, experiment_name)
+        os.makedirs(experiment_dir, exist_ok=True)
+
+        # 实验日志
+        log_config = experiment_config.get("log_config", {})
+        log_dir = os.path.join(experiment_dir, log_config.get("log_dir", "logs"))
+        os.makedirs(log_dir, exist_ok=True)
+        self.log_step_interval = log_config.get("log_step_interval", 100)
+        self.test_epoch_interval = log_config.get("test_epoch_interval", 20)
+        self.writer = SummaryWriter(log_dir=log_dir)
         self.global_step = global_step
-        self.writer = SummaryWriter(log_dir=self.log_dir)
-        self.test_metrics = self.config.get("test_metrics", [])
+        self.test_metrics = experiment_config.get("test_config", {}).get("test_metrics", [])
+
+        # 检查点
+        checkpoint_config = experiment_config.get("checkpoint_config", {})
+        self.checkpoint_dir = os.path.join(experiment_dir, checkpoint_config.get("checkpoint_dir", "checkpoints"))
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        self.save_epoch_interval = checkpoint_config.get("save_epoch_interval", 10)
+
+        # hydra配置保存
+        hydra_config = experiment_config.get("hydra_config", {})
+        origin_dir = hydra_config.get("origin_dir", None)
+        if origin_dir is not None:
+            hydra_save_dir = os.path.join(experiment_dir, "hydra")
+            os.makedirs(hydra_save_dir, exist_ok=True)
+            for item in os.listdir(origin_dir):
+                s = os.path.join(origin_dir, item)
+                d = os.path.join(hydra_save_dir, item)
+                if os.path.isdir(s):
+                    shutil.copytree(s, d, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(s, d)
 
     def train_step(self, batch):
         inputs, targets = batch
@@ -101,25 +123,37 @@ class Trainer:
 
         return avg_loss
     
-    def test_epoch(self):
-        self.model.eval()
-        results = {}
-        for metric in self.test_metrics:
-            results[metric.__name__] = 0.0
+    def test_step(self, batch):
+        inputs, targets = batch
+        inputs = inputs.to(self.device)
+        targets = targets.to(self.device)
 
         with torch.no_grad():
-            for step, batch in enumerate(self.test_loader):
-                inputs, targets = batch
-                inputs = inputs.to(self.device)
-                targets = targets.to(self.device)
+            outputs = self.model(inputs)
 
-                outputs = self.model(inputs)
+        return outputs, targets
+    
+    def test_epoch(self):
+        self.model.eval()
+        all_outputs = []
+        all_targets = []
+        for step, batch in enumerate(self.test_loader):
+            outputs, targets = self.test_step(batch)
+            all_outputs.append(outputs.cpu())
+            all_targets.append(targets.cpu())
+        
+        all_outputs = torch.cat(all_outputs, dim=0)
+        all_targets = torch.cat(all_targets, dim=0)
 
-                for metric in self.test_metrics:
-                    results[metric.__name__] += metric(outputs, targets).item()
-
-        for metric_name in results:
-            results[metric_name] /= len(self.test_loader)
+        results = {}
+        for metric in self.test_metrics:
+            if metric == "MAE":
+                mae = torch.mean(torch.abs(all_outputs - all_targets)).item()
+                results["MAE"] = mae
+            elif metric == "MSE":
+                mse = torch.mean((all_outputs - all_targets) ** 2).item()
+                results["MSE"] = mse
+            # 可以添加更多指标计算
 
         return results
     
@@ -190,26 +224,16 @@ class Trainer:
 
         return epoch, global_step, optimizer_state, scheduler_state, val_loss
 
-    def build_optimizer_scheduler(self, optimizer_state=None, scheduler_state=None):
-        # optimizer
-        optimizer = torch.optim.Adam(
-            self.model.parameters(),
-            lr=self.config.get("lr", 1e-3)
+    def build_train_components(self, optimizer_state=None, scheduler_state=None):
+        # optimizer scheduler loss_fn
+        optimizer_config = self.config.get("optimizer_config")
+        scheduler_config = self.config.get("scheduler_config")
+        loss_config = self.config.get("loss_config")
+        optimizer, scheduler, loss_fn = get_train_components(
+            model_parameters=self.model.parameters(),
+            optimizer_config=optimizer_config,optimizer_state=optimizer_state,
+            scheduler_config=scheduler_config,scheduler_state=scheduler_state,
+            loss_config=loss_config
         )
-        if optimizer_state is not None:
-            optimizer.load_state_dict(optimizer_state)
 
-        # scheduler
-        scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer,
-            step_size=self.config.get("step_size", 10),
-            gamma=self.config.get("gamma", 0.1)
-        )
-        if scheduler_state is not None:
-            scheduler.load_state_dict(scheduler_state)
-
-        return optimizer, scheduler
-    
-    def build_loss_function(self):
-        loss_fn = torch.nn.L1Loss()
-        return loss_fn
+        return optimizer, scheduler, loss_fn

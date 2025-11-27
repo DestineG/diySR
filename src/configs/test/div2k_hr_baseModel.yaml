@@ -64,4 +64,4 @@ model:
 
 test_config:
   device: cuda
-  weight_path: ./experiments/exp_1/checkpoints/best_model.pth
+  weight_path: experiments/div2k_hr_baseModel/exp_0/checkpoints/epoch_best.pth

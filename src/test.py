@@ -19,7 +19,7 @@ def load_config(yaml_path):
 
     test_data_loader = cfg_dict.get('test_data_loader')
     model_config = cfg_dict.get('model')
-    test_config = cfg_dict.get('motest_configdel')
+    test_config = cfg_dict.get('test_config')
 
     return test_data_loader, model_config, test_config
 # -----------------------------
@@ -104,7 +104,7 @@ def test(model, test_loader, normalize_config=None, device='cuda'):
 # -----------------------------
 # 4️⃣ 主函数 python -m src.test
 # -----------------------------
-# 非标准化: Average PSNR: 32.19 dB, Average SSIM: 0.9147
+# 非标准化: Average PSNR: 31.20 dB, Average SSIM: 0.9077
 # 标准化: Average PSNR: 31.90 dB, Average SSIM: 0.9098
 if __name__ == "__main__":
     yaml_path = './src/configs/test/div2k_hr_baseModel.yaml'
