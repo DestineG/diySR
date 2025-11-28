@@ -14,19 +14,11 @@ def register_split(name):
 
 
 @register_split("div2k_hr")
-def split_data_div2k_hr(data_path, train_ratio=0.9, seed=42):
-    """
-    分割 DF2K 数据集为训练集、验证集和测试集，并保存为 YAML 文件。
-    如果文件已存在则直接读取并返回。
-    
-    Args:
-        data_path (str): 数据集根目录
-        train_ratio (float): 训练集比例
-        seed (int): 随机种子
-    
-    Returns:
-        split_info (dict): 划分信息字典
-    """
+def split_data_div2k_hr(split_config):
+
+    data_path = split_config.get("data_path")
+    train_ratio = split_config.get("train_ratio", 0.9)
+    seed = split_config.get("seed", 42)
 
     train_path = os.path.join(data_path, "DF2K_train_HR")
     test_path = os.path.join(data_path, "DIV2K_valid_HR")

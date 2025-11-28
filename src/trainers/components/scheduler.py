@@ -4,7 +4,7 @@ import torch.optim.lr_scheduler as lr_scheduler
 
 def get_scheduler(optimizer, scheduler_state, config):
     scheduler_name = config.get("schedulerFuncName", "step_lr").lower()
-    scheduler_args = config.get("schedulerFuncArgs").get(scheduler_name)
+    scheduler_args = config.get("schedulerFuncArgs")
 
     if scheduler_name == "step_lr":
         scheduler = lr_scheduler.StepLR(optimizer, **scheduler_args)

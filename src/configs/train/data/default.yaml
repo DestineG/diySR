@@ -1,32 +1,41 @@
-# src/configs/train/conf_0/data/default.yaml
+# src/configs/train/data/default.yaml
 
-split_config:
-  splitFuncName: div2k_hr
-  splitFuncArgs:
-    data_path: /dataroot/liujiang/data/datasets/DF2K
-    train_ratio: 0.9
+common:
+  normalize_config:
+    normalize: false
+    mean: [0.5, 0.5, 0.5]
+    std: [0.5, 0.5, 0.5]
 
-dataloader_config:
-  common:
-    normalize_config:
-      normalize: false
-      mean: [0.5, 0.5, 0.5]
-      std: [0.5, 0.5, 0.5]
+  split_config:
+    splitFuncName: div2k_hr
+    splitFuncArgs:
+      data_path: /dataroot/liujiang/data/datasets/DF2K
+      train_ratio: 0.9
+      seed: 42
+  
+  load_to: memory
+  color_mode: RGB
 
+datamoduleClsName: base_datamodule
+datamoduleClsArgs:
   train_config:
     dataset_config:
       loader_config:
         loaderFuncName: div2k_hr
         loaderFuncArgs:
-          load_to: memory
-          color_mode: RGB
-          verbose: true
+          split_config: ${......common.split_config}
+          mode: train
+          load_to: ${......common.load_to}
           repeat: 10
+          load_to_memory_config:
+            max_memory_usage: null
+            color_mode: ${.......common.color_mode}
+            verbose: true
       handler_config:
         handlerFuncName: div2k_hr
         handlerFuncArgs:
-          load_from: ${...loader_config.loaderFuncArgs.load_to}
-          color_mode: ${...loader_config.loaderFuncArgs.color_mode}
+          load_from: ${......common.load_to}
+          color_mode: ${......common.color_mode}
           augment_config:
             augment: false
             augmentFuncName: null
@@ -39,27 +48,32 @@ dataloader_config:
     collate_config:
       collateFuncName: div2k_hr
       collateFuncArgs:
-        patch_size: 128
+        mode: train
+        patch_size: 144
         min_scale: 1
         max_scale: 4
         scale: null
         interp_mode: bilinear
-        normalize_config: ${....common.normalize_config}
+        normalize_config: ${.....common.normalize_config}
 
   val_config:
     dataset_config:
       loader_config:
         loaderFuncName: div2k_hr
         loaderFuncArgs:
-          load_to: memory
-          color_mode: RGB
-          verbose: true
+          split_config: ${......common.split_config}
+          mode: val
+          load_to: ${......common.load_to}
           repeat: 2
+          load_to_memory_config:
+            max_memory_usage: null
+            color_mode: ${.......common.color_mode}
+            verbose: true
       handler_config:
         handlerFuncName: div2k_hr
         handlerFuncArgs:
-          load_from: ${...loader_config.loaderFuncArgs.load_to}
-          color_mode: ${...loader_config.loaderFuncArgs.color_mode}
+          load_from: ${......common.load_to}
+          color_mode: ${......common.color_mode}
           augment_config:
             augment: false
             augmentFuncName: null
@@ -72,27 +86,32 @@ dataloader_config:
     collate_config:
       collateFuncName: div2k_hr
       collateFuncArgs:
-        patch_size: 128
+        mode: val
+        patch_size: 144
         min_scale: 1
         max_scale: 4
         scale: null
         interp_mode: bilinear
-        normalize_config: ${....common.normalize_config}
+        normalize_config: ${.....common.normalize_config}
 
   test_config:
     dataset_config:
       loader_config:
         loaderFuncName: div2k_hr
         loaderFuncArgs:
-          load_to: memory
-          color_mode: RGB
-          verbose: true
+          split_config: ${......common.split_config}
+          mode: test
+          load_to: ${......common.load_to}
           repeat: 1
+          load_to_memory_config:
+            max_memory_usage: null
+            color_mode: ${.......common.color_mode}
+            verbose: true
       handler_config:
         handlerFuncName: div2k_hr
         handlerFuncArgs:
-          load_from: ${...loader_config.loaderFuncArgs.load_to}
-          color_mode: ${...loader_config.loaderFuncArgs.color_mode}
+          load_from: ${......common.load_to}
+          color_mode: ${......common.color_mode}
           augment_config:
             augment: false
             augmentFuncName: null
@@ -105,9 +124,10 @@ dataloader_config:
     collate_config:
       collateFuncName: div2k_hr
       collateFuncArgs:
-        patch_size: 128
+        mode: test
+        patch_size: 144
         min_scale: 1
         max_scale: 4
-        scale: null
-        interp_mode: bilinear
-        normalize_config: ${....common.normalize_config}
+        scale: 2
+        interp_mode: bicubic
+        normalize_config: ${.....common.normalize_config}

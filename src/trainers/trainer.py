@@ -1,13 +1,29 @@
 # src/trainers/trainer.py
 
 import os
+import time
 import shutil
 import torch
+from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torch.utils.tensorboard import SummaryWriter
+import torchvision.utils as vutils
+from tqdm import tqdm
 
 from .components import get_train_components
+from ..utils.metrics import calc_psnr_batch, calc_ssim_batch
 
 
+registered_trainers = {}
+def register_trainer(name):
+    def decorator(cls):
+        registered_trainers[name] = cls
+        return cls
+    return decorator
+
+def get_trainer_by_name(name):
+    return registered_trainers.get(name)
+
+@register_trainer('base_trainer')
 class Trainer:
     def __init__(self, model, dm, config={}):
         self.model = model
@@ -34,10 +50,11 @@ class Trainer:
             scheduler_state=scheduler_state)
 
         # 训练超参数设置
-        self.device = self.config.get("device", "cpu")
+        self.device = self.config.get("device")
         self.start_epoch = epoch
-        self.max_epochs = self.config.get("max_epochs", 1000)
+        self.max_epochs = self.config.get("max_epochs")
         self.best_val_loss = best_val_loss
+        self.model.to(self.device)
 
         # 实验记录设置
         experiment_config = self.config.get("experiment_config", {})
@@ -51,6 +68,8 @@ class Trainer:
         log_dir = os.path.join(experiment_dir, log_config.get("log_dir", "logs"))
         os.makedirs(log_dir, exist_ok=True)
         self.log_step_interval = log_config.get("log_step_interval", 100)
+        self.last_log_time = time.time()
+        self.total_steps = (self.max_epochs - self.start_epoch) * len(self.train_loader)
         self.test_epoch_interval = log_config.get("test_epoch_interval", 20)
         self.writer = SummaryWriter(log_dir=log_dir)
         self.global_step = global_step
@@ -75,48 +94,63 @@ class Trainer:
                     shutil.copytree(s, d, dirs_exist_ok=True)
                 else:
                     shutil.copy2(s, d)
+        
+        # 初始化指标工具
+        self.psnr_metric = PeakSignalNoiseRatio(data_range=255.0).to(self.device)
+        self.ssim_metric = StructuralSimilarityIndexMeasure(data_range=255.0).to(self.device)
 
     def train_step(self, batch):
-        inputs, targets = batch
-        inputs = inputs.to(self.device)
-        targets = targets.to(self.device)
+        input, target = batch
+        intput = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k,v in input.items()}
+        target = target.to(self.device)
 
         self.optimizer.zero_grad()
-        outputs = self.model(inputs)
-        loss = self.loss_fn(outputs, targets)
+        outputs = self.model(intput)
+        loss = self.loss_fn(outputs, target)
         loss.backward()
         self.optimizer.step()
 
-        return loss.item()
+        return outputs, loss.item()
     
-    def train_epoch(self):
+    def train_epoch(self, epoch):
         self.model.train()
         epoch_loss = 0.0
-        for step, batch in enumerate(self.train_loader):
-            loss = self.train_step(batch)
-            self.global_step += 1
+        
+        for step, batch in enumerate(tqdm(self.train_loader, desc=f"Training Epoch {epoch}/{self.max_epochs}", ascii=True, disable=False)):
+            outputs, loss = self.train_step(batch)
             epoch_loss += loss
             if (self.global_step + 1) % self.log_step_interval == 0:
-                self.writer.add_scalar('Loss/Step', loss, self.global_step)
+                self.writer.add_scalar('Loss/Step', loss, self.global_step + 1)
+                lr_img = vutils.make_grid(batch['lr'][:4], normalize=True, scale_each=True)
+                hr_img = vutils.make_grid(batch['hr'][:4], normalize=True, scale_each=True)
+                pred_img = vutils.make_grid(outputs[:4], normalize=True, scale_each=True)
+                self.writer.add_image('Images/LR', lr_img, self.global_step + 1)
+                self.writer.add_image('Images/Pred', pred_img, self.global_step + 1)
+                self.writer.add_image('Images/HR', hr_img, self.global_step + 1)
+                now = time.time()
+                step_interval_time = now - self.last_log_time
+                self.last_log_time = now
+                print(f"Step {self.global_step + 1}/{self.total_steps}, Loss: {loss:.6f}, StepIntervalTime: {step_interval_time:.2f}s")
+            self.global_step += 1
 
         avg_loss = epoch_loss / len(self.train_loader)
         return avg_loss
     
     def val_step(self, batch):
-        inputs, targets = batch
-        inputs = inputs.to(self.device)
-        targets = targets.to(self.device)
+        input, target = batch
+        intput = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k,v in input.items()}
+        target = target.to(self.device)
 
         with torch.no_grad():
-            outputs = self.model(inputs)
-            loss = self.loss_fn(outputs, targets)
-
+            outputs = self.model(intput)
+            loss = self.loss_fn(outputs, target)
         return loss.item()
     
     def val_epoch(self):
         self.model.eval()
+
         epoch_loss = 0.0
-        for step, batch in enumerate(self.val_loader):
+        for step, batch in enumerate(tqdm(self.val_loader, desc="Validation", ascii=True, disable=False)):
             loss = self.val_step(batch)
             epoch_loss += loss
         avg_loss = epoch_loss / len(self.val_loader)
@@ -124,47 +158,43 @@ class Trainer:
         return avg_loss
     
     def test_step(self, batch):
-        inputs, targets = batch
-        inputs = inputs.to(self.device)
-        targets = targets.to(self.device)
+        input, target = batch
+        intput = {k: v.to(self.device) if isinstance(v, torch.Tensor) else v for k,v in input.items()}
+        target = target.to(self.device)
 
         with torch.no_grad():
-            outputs = self.model(inputs)
+            outputs = self.model(intput)
 
-        return outputs, targets
+        return outputs, target
     
     def test_epoch(self):
         self.model.eval()
-        all_outputs = []
-        all_targets = []
-        for step, batch in enumerate(self.test_loader):
+
+        # tqdm 包装 dataloader
+        for batch in tqdm(self.test_loader, desc="Testing", ascii=True, disable=False):
             outputs, targets = self.test_step(batch)
-            all_outputs.append(outputs.cpu())
-            all_targets.append(targets.cpu())
-        
-        all_outputs = torch.cat(all_outputs, dim=0)
-        all_targets = torch.cat(all_targets, dim=0)
+
+            self.psnr_metric.update(outputs, targets)
+            self.ssim_metric.update(outputs, targets)
 
         results = {}
-        for metric in self.test_metrics:
-            if metric == "MAE":
-                mae = torch.mean(torch.abs(all_outputs - all_targets)).item()
-                results["MAE"] = mae
-            elif metric == "MSE":
-                mse = torch.mean((all_outputs - all_targets) ** 2).item()
-                results["MSE"] = mse
-            # 可以添加更多指标计算
+        if "psnr" in self.test_metrics:
+            results["PSNR"] = self.psnr_metric.compute().item()
+            self.psnr_metric.reset()
+        if "ssim" in self.test_metrics:
+            results["SSIM"] = self.ssim_metric.compute().item()
+            self.ssim_metric.reset()
 
         return results
     
     def fit(self):
         for epoch in range(self.start_epoch, self.max_epochs):
-            train_loss = self.train_epoch()
+            train_loss = self.train_epoch(epoch)
             val_loss = self.val_epoch()
             self.writer.add_scalars('Loss/Epoch', {
                 'Train': train_loss,
                 'Val': val_loss
-            }, epoch)
+            }, epoch+1)
 
             # 调度器步进
             self.scheduler.step()
@@ -182,7 +212,7 @@ class Trainer:
             if self.test_epoch_interval > 0 and (epoch + 1) % self.test_epoch_interval == 0:
                 test_results = self.test_epoch()
                 for metric, value in test_results.items():
-                    self.writer.add_scalar(f'Test/{metric}', value, epoch)
+                    self.writer.add_scalar(f'Test/{metric}', value, epoch+1)
 
     def save_checkpoint(self, epoch, global_step, optimizer_state, scheduler_state, val_loss, checkpoint_dir):
         # 保存模型权重

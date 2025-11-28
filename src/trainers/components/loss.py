@@ -4,7 +4,7 @@ import torch.nn as nn
 
 def get_loss_function(loss_config):
     loss_name = loss_config.get("lossFuncName", "l1_loss").lower()
-    loss_args = loss_config.get("lossFuncArgs").get(loss_name)
+    loss_args = loss_config.get("lossFuncArgs")
 
     if loss_name == "l1_loss":
         loss_fn = nn.L1Loss(**loss_args)

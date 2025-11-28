@@ -5,70 +5,48 @@ import torch.nn.functional as F
 import random
 from . import register_collate
 
-div2k_hr_defaultConfig = {
-    'phase': 'train',       # train / val / test_hr / test_lrhr / infer
-    'patch_size': 128,
-    'min_scale': 1,
-    'max_scale': 4,
-    'scale': 2,
-    'interp_mode': 'bicubic',
-    'normalize_config': {
-        'normalize': True,               # 是否归一化
-        'mean': [0.5, 0.5, 0.5],         # 图像通道均值，RGB 顺序
-        'std': [0.5, 0.5, 0.5]           # 图像通道标准差
-    }
-}
 
 @register_collate('div2k_hr')
-def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
-    phase = collate_config.get('phase', 'train')
-    interp_mode = collate_config.get('interp_mode', 'bicubic')
-    normalize_config = collate_config.get('normalize_config', {})
+def div2k_hr_collate(batch, config=None):
+    mode = config.get('mode')
+    interp_mode = config.get('interp_mode')
+    normalize_config = config.get('normalize_config')
+    normalize = normalize_config.get('normalize')
+    normalize_mean = normalize_config.get('mean')
+    normalize_std = normalize_config.get('std')
 
-    # ======================================================
-    # 1 ⬇️ Training / Validation（输入是 HR，做随机 crop）
-    # ======================================================
-    if phase in ['train', 'val']:
-        patch = collate_config.get('patch_size', 48)
-
+    if mode in ['train', 'val']:
+        min_scale = config.get('min_scale')
+        max_scale = config.get('max_scale')
+        patch_size = config.get('patch_size')
+        # 随机 crop
         hr_patches = []
         for img in batch:
             _, H, W = img.shape
-            top = random.randint(0, H - patch)
-            left = random.randint(0, W - patch)
-            crop = img[:, top:top + patch, left:left + patch]
+            top = random.randint(0, H - patch_size)
+            left = random.randint(0, W - patch_size)
+            crop = img[:, top:top + patch_size, left:left + patch_size]
             hr_patches.append(crop)
-
         hr_tensor = torch.stack(hr_patches, dim=0)
-
         # 随机 scale
-        min_s = collate_config.get('min_scale', 1)
-        max_s = collate_config.get('max_scale', 4)
-        scale = random.randint(min_s, max_s)
-
+        scale = random.randint(min_scale, max_scale)
         lr_tensor = F.interpolate(
-            hr_tensor, scale_factor=1/scale, mode=interp_mode, align_corners=False
+            hr_tensor, scale_factor=1/scale,
+            mode=interp_mode, align_corners=False
         )
-        
-        if normalize_config.get('normalize', False):
-            mean = torch.tensor(normalize_config.get('mean', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
-            std = torch.tensor(normalize_config.get('std', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
+        # 归一化
+        if normalize:
+            mean = torch.tensor(normalize_mean, device=lr_tensor.device).view(1, -1, 1, 1)
+            std = torch.tensor(normalize_std, device=lr_tensor.device).view(1, -1, 1, 1)
             hr_tensor = (hr_tensor / 255.0 - mean) / std
             lr_tensor = (lr_tensor / 255.0 - mean) / std
 
-        return {
-            "hr": hr_tensor,
-            "lr": lr_tensor,
-            "scale": scale,
-        }
-
-    # ======================================================
-    # 2 ⬇️ Test: HR-only（你给 batch = HR 堆叠 → 需要下采样成 LR）
-    # ======================================================
-    elif phase == 'test':  
+        return {"lr": lr_tensor, "scale":  scale}, hr_tensor
+    
+    elif mode == 'test':
+        scale = config.get('scale')
         hr_list = []
         lr_list = []
-        scale = collate_config.get('scale', 2)
         max_hw_sum = 2040 + 1356  # H+W 最大和
 
         for hr in batch:  # batch 是 list，每个元素 [C,H,W]
@@ -97,35 +75,13 @@ def div2k_hr_collate(batch, collate_config=div2k_hr_defaultConfig):
         hr_tensor = torch.stack(hr_list, dim=0)
         lr_tensor = torch.stack(lr_list, dim=0)
 
-        if normalize_config.get('normalize', False):
-            mean = torch.tensor(normalize_config.get('mean', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
-            std = torch.tensor(normalize_config.get('std', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
+        if normalize:
+            mean = torch.tensor(normalize_mean, device=lr_tensor.device).view(1, -1, 1, 1)
+            std = torch.tensor(normalize_std, device=lr_tensor.device).view(1, -1, 1, 1)
             hr_tensor = (hr_tensor / 255.0 - mean) / std
             lr_tensor = (lr_tensor / 255.0 - mean) / std
 
-        return {
-            "hr": hr_tensor,
-            "lr": lr_tensor,
-            "scale": scale,
-        }
-
-    # ======================================================
-    # 3 ⬇️ Inference: 只推理 LR，batch = LR 堆叠
-    # ======================================================
-    elif phase == 'infer':
-        lr_tensor = torch.stack(batch, dim=0)
-        scale = collate_config.get('scale', 2)
-
-        if normalize_config.get('normalize', False):
-            mean = torch.tensor(normalize_config.get('mean', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
-            std = torch.tensor(normalize_config.get('std', [0.5, 0.5, 0.5]), device=lr_tensor.device).view(1, -1, 1, 1)
-            lr_tensor = (lr_tensor / 255.0 - mean) / std
-
-        return {
-            "hr": None,
-            "lr": lr_tensor,
-            "scale": scale,
-        }
+        return {"lr": lr_tensor, "scale":  scale}, hr_tensor
 
     else:
-        raise ValueError(f"Unknown phase: {phase}")
+        raise ValueError(f"Unsupported mode: {mode}")
