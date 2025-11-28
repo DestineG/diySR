@@ -1,10 +1,5 @@
 # src/configs/train/conf_0/train/default.yaml
 
-resume_config:
-  resume: false
-  resume_from_checkpointDir: null
-  resume_from_checkpointEpoch: 0
-
 common:
   optFuncArgsDic:
     adam:
@@ -39,6 +34,11 @@ common:
 
 trainerClsName: base_trainer
 trainerClsArgs:
+  resume_config:
+    resume: false
+    resume_from_checkpointDir: null
+    resume_from_checkpointEpoch: 0
+
   component_config:
     optimizer_config:
       optimizerFuncName: adam
@@ -53,12 +53,12 @@ trainerClsArgs:
 
   device: cuda
   max_epochs: 1000
-  normalize: ${data.common.normalize_config.normalize}
+  normalize: ${common.normalize_config.normalize}
   verbose: ${common.verbose}
 
   experiment_config:
     experiment_dir: ./experiments
-    experiment_name: exp_01
+    experiment_name: ${common.experiment_name}
     log_config:
       log_dir: logs
       log_step_interval: 200

@@ -50,10 +50,11 @@ class Trainer:
             scheduler_state=scheduler_state)
 
         # 训练超参数设置
-        self.device = self.config.get("device")
         self.start_epoch = epoch
         self.max_epochs = self.config.get("max_epochs")
         self.best_val_loss = best_val_loss
+        self.normalize = self.config.get("normalize")
+        self.device = self.config.get("device")
         self.model.to(self.device)
 
         # 实验记录设置
