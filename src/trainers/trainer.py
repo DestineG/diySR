@@ -68,12 +68,11 @@ class Trainer:
         log_dir = os.path.join(experiment_dir, log_config.get("log_dir", "logs"))
         os.makedirs(log_dir, exist_ok=True)
         self.log_step_interval = log_config.get("log_step_interval", 100)
-        self.last_log_time = time.time()
-        self.total_steps = (self.max_epochs - self.start_epoch) * len(self.train_loader)
         self.test_epoch_interval = log_config.get("test_epoch_interval", 20)
         self.writer = SummaryWriter(log_dir=log_dir)
         self.global_step = global_step
         self.test_metrics = experiment_config.get("test_config", {}).get("test_metrics", [])
+        self.verbose = experiment_config.get("verbose")
 
         # 检查点
         checkpoint_config = experiment_config.get("checkpoint_config", {})
@@ -96,8 +95,10 @@ class Trainer:
                     shutil.copy2(s, d)
         
         # 初始化指标工具
-        self.psnr_metric = PeakSignalNoiseRatio(data_range=255.0).to(self.device)
-        self.ssim_metric = StructuralSimilarityIndexMeasure(data_range=255.0).to(self.device)
+        data_range = 1.0 if self.normalize else 255.0
+        self.psnr_metric = PeakSignalNoiseRatio(data_range=data_range).to(self.device)
+        self.ssim_metric = StructuralSimilarityIndexMeasure(data_range=data_range).to(self.device)
+
 
     def train_step(self, batch):
         input, target = batch
@@ -110,29 +111,25 @@ class Trainer:
         loss.backward()
         self.optimizer.step()
 
-        return outputs, loss.item()
+        if (self.global_step + 1) % self.log_step_interval == 0:
+            self.writer.add_scalar('Loss/Step', loss, self.global_step + 1)
+            lr_img = vutils.make_grid(intput['lr'][:4], normalize=True, scale_each=True)
+            hr_img = vutils.make_grid(target[:4], normalize=True, scale_each=True)
+            pred_img = vutils.make_grid(outputs[:4], normalize=True, scale_each=True)
+            self.writer.add_image('Images/LR', lr_img, self.global_step + 1)
+            self.writer.add_image('Images/Pred', pred_img, self.global_step + 1)
+            self.writer.add_image('Images/HR', hr_img, self.global_step + 1)
+        self.global_step += 1
+
+        return loss.item()
     
     def train_epoch(self, epoch):
         self.model.train()
         epoch_loss = 0.0
         
-        for step, batch in enumerate(tqdm(self.train_loader, desc=f"Training Epoch {epoch}/{self.max_epochs}", ascii=True, disable=False)):
-            outputs, loss = self.train_step(batch)
+        for step, batch in enumerate(tqdm(self.train_loader, desc=f"Training Epoch {epoch}/{self.max_epochs}", ascii=True, disable=not self.verbose)):
+            loss = self.train_step(batch)
             epoch_loss += loss
-            if (self.global_step + 1) % self.log_step_interval == 0:
-                self.writer.add_scalar('Loss/Step', loss, self.global_step + 1)
-                lr_img = vutils.make_grid(batch['lr'][:4], normalize=True, scale_each=True)
-                hr_img = vutils.make_grid(batch['hr'][:4], normalize=True, scale_each=True)
-                pred_img = vutils.make_grid(outputs[:4], normalize=True, scale_each=True)
-                self.writer.add_image('Images/LR', lr_img, self.global_step + 1)
-                self.writer.add_image('Images/Pred', pred_img, self.global_step + 1)
-                self.writer.add_image('Images/HR', hr_img, self.global_step + 1)
-                now = time.time()
-                step_interval_time = now - self.last_log_time
-                self.last_log_time = now
-                print(f"Step {self.global_step + 1}/{self.total_steps}, Loss: {loss:.6f}, StepIntervalTime: {step_interval_time:.2f}s")
-            self.global_step += 1
-
         avg_loss = epoch_loss / len(self.train_loader)
         return avg_loss
     
@@ -150,11 +147,10 @@ class Trainer:
         self.model.eval()
 
         epoch_loss = 0.0
-        for step, batch in enumerate(tqdm(self.val_loader, desc="Validation", ascii=True, disable=False)):
+        for step, batch in enumerate(tqdm(self.val_loader, desc="Validation", ascii=True, disable=not self.verbose)):
             loss = self.val_step(batch)
             epoch_loss += loss
         avg_loss = epoch_loss / len(self.val_loader)
-
         return avg_loss
     
     def test_step(self, batch):
@@ -170,8 +166,7 @@ class Trainer:
     def test_epoch(self):
         self.model.eval()
 
-        # tqdm 包装 dataloader
-        for batch in tqdm(self.test_loader, desc="Testing", ascii=True, disable=False):
+        for batch in tqdm(self.test_loader, desc="Testing", ascii=True, disable=not self.verbose):
             outputs, targets = self.test_step(batch)
 
             self.psnr_metric.update(outputs, targets)
@@ -202,11 +197,13 @@ class Trainer:
             if val_loss < self.best_val_loss:
                 self.save_checkpoint("best", self.global_step, self.optimizer.state_dict(), self.scheduler.state_dict(), val_loss, self.checkpoint_dir)
                 self.best_val_loss = val_loss
-                print(f"Saved checkpoint at epoch best")
+                if self.verbose:
+                    print(f"Saved checkpoint at epoch best")
 
             if (epoch + 1) % self.save_epoch_interval == 0:
                 self.save_checkpoint(epoch + 1, self.global_step, self.optimizer.state_dict(), self.scheduler.state_dict(), val_loss, self.checkpoint_dir)
-                print(f"Saved checkpoint at epoch {epoch + 1}")
+                if self.verbose:
+                    print(f"Saved checkpoint at epoch {epoch + 1}")
             
             # 定期测试
             if self.test_epoch_interval > 0 and (epoch + 1) % self.test_epoch_interval == 0:

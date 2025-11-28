@@ -1,10 +1,6 @@
 # src/configs/train/data/default.yaml
 
 common:
-  normalize_config:
-    normalize: false
-    mean: [0.5, 0.5, 0.5]
-    std: [0.5, 0.5, 0.5]
 
   split_config:
     splitFuncName: div2k_hr
@@ -30,7 +26,7 @@ datamoduleClsArgs:
           load_to_memory_config:
             max_memory_usage: null
             color_mode: ${.......common.color_mode}
-            verbose: true
+            verbose: ${common.verbose}
       handler_config:
         handlerFuncName: div2k_hr
         handlerFuncArgs:
@@ -54,7 +50,7 @@ datamoduleClsArgs:
         max_scale: 4
         scale: null
         interp_mode: bilinear
-        normalize_config: ${.....common.normalize_config}
+        normalize_config: ${common.normalize_config}
 
   val_config:
     dataset_config:
@@ -68,7 +64,7 @@ datamoduleClsArgs:
           load_to_memory_config:
             max_memory_usage: null
             color_mode: ${.......common.color_mode}
-            verbose: true
+            verbose: ${common.verbose}
       handler_config:
         handlerFuncName: div2k_hr
         handlerFuncArgs:
@@ -92,7 +88,7 @@ datamoduleClsArgs:
         max_scale: 4
         scale: null
         interp_mode: bilinear
-        normalize_config: ${.....common.normalize_config}
+        normalize_config: ${common.normalize_config}
 
   test_config:
     dataset_config:
@@ -106,7 +102,7 @@ datamoduleClsArgs:
           load_to_memory_config:
             max_memory_usage: null
             color_mode: ${.......common.color_mode}
-            verbose: true
+            verbose: ${common.verbose}
       handler_config:
         handlerFuncName: div2k_hr
         handlerFuncArgs:
@@ -130,4 +126,4 @@ datamoduleClsArgs:
         max_scale: 4
         scale: 2
         interp_mode: bicubic
-        normalize_config: ${.....common.normalize_config}
+        normalize_config: ${common.normalize_config}

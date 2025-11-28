@@ -53,6 +53,8 @@ trainerClsArgs:
 
   device: cuda
   max_epochs: 1000
+  normalize: ${data.common.normalize_config.normalize}
+  verbose: ${common.verbose}
 
   experiment_config:
     experiment_dir: ./experiments

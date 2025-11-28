@@ -4,6 +4,14 @@ defaults:
   - model: default
   - train: default
 
+common:
+  verbose: true
+
+  normalize_config:
+    normalize: false
+    mean: [0.5, 0.5, 0.5]
+    std: [0.5, 0.5, 0.5]
+
 hydra:
   run:
     dir: logs/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}
