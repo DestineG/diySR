@@ -13,20 +13,14 @@ def register_collate(name):
 
 # 获取已注册的collate
 def get_collate_by_name(name):
-    """
-    根据名称返回已注册的collate
-    """
     collate = registered_collates.get(name)
     if collate is None:
         raise ValueError(f"Collate with name '{name}' is not registered.")
     return collate
 
 # 自动注册所有 collate
+# 自动注册调用放到最后避免循环导入问题
 def register_all_collates():
-    """
-    自动扫描当前目录下所有 *_collate.py 文件并 import
-    触发 @register_collate 装饰器自动注册
-    """
     current_dir = os.path.dirname(__file__)
     collate_files = glob.glob(os.path.join(current_dir, "*_collate.py"))
 

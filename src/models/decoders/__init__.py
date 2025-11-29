@@ -13,21 +13,14 @@ def register_decoder(name):
 
 # 根据名称获取已注册的解码器
 def get_decoder_by_name(name):
-    """
-    根据名称返回已注册的解码器类
-    """
     decoder = registered_decoders.get(name)
     if decoder is None:
         raise ValueError(f"Decoder with name '{name}' is not registered.")
     return decoder
 
 # 自动注册所有解码器
+# 自动注册调用放到最后避免循环导入问题
 def register_all_decoders():
-    """
-    自动扫描当前目录下所有 *_decoder.py 文件并 import
-    触发 @register_decoder 装饰器自动注册
-    """
-
     current_dir = os.path.dirname(__file__)
     decoder_files = glob.glob(os.path.join(current_dir, "*_decoder.py"))
 

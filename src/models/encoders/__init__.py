@@ -13,21 +13,14 @@ def register_encoder(name):
 
 # 根据名称获取已注册的编码器
 def get_encoder_by_name(name):
-    """
-    根据名称返回已注册的编码器类
-    """
     encoder = registered_encoders.get(name)
     if encoder is None:
         raise ValueError(f"Encoder with name '{name}' is not registered.")
     return encoder
 
 # 自动注册所有编码器
+# 自动注册调用放到最后避免循环导入问题
 def register_all_encoders():
-    """
-    自动扫描当前目录下所有 *_encoder.py 文件并 import
-    触发 @register_encoder 装饰器自动注册
-    """
-
     current_dir = os.path.dirname(__file__)
     encoder_files = glob.glob(os.path.join(current_dir, "*_encoder.py"))
 

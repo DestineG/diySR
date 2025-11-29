@@ -1,7 +1,7 @@
 # /src/data/loaders/div2k_hr_loader.py
 
 from . import register_loader, _load_images_to_memory
-from src.utils.data_split import registered_splits
+from ..splitters import get_splitter_by_name
 
 
 @register_loader('div2k_hr')
@@ -10,7 +10,7 @@ def div2k_hr_loader(config=None):
     split_config = config.get('split_config')
     split_func_name = split_config.get('splitFuncName')
     split_func_args = split_config.get('splitFuncArgs')
-    split_constructor = registered_splits.get(split_func_name)
+    split_constructor = get_splitter_by_name(split_func_name)
     if split_constructor is None:
         raise RuntimeError(f"Split function '{split_func_name}' not found.")
     split_info = split_constructor(split_func_args)

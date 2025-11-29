@@ -1,16 +1,14 @@
 # src/trainers/trainer.py
 
 import os
-import time
 import shutil
 import torch
-from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torch.utils.tensorboard import SummaryWriter
 import torchvision.utils as vutils
 from tqdm import tqdm
 
 from .components import get_train_components
-from ..utils.metrics import calc_psnr_batch, calc_ssim_batch
+from ..utils.metrics import psnr_metric_from_list, ssim_metric_from_list
 
 
 registered_trainers = {}
@@ -94,12 +92,6 @@ class Trainer:
                     shutil.copytree(s, d, dirs_exist_ok=True)
                 else:
                     shutil.copy2(s, d)
-        
-        # 初始化指标工具
-        data_range = 1.0 if self.normalize else 255.0
-        self.psnr_metric = PeakSignalNoiseRatio(data_range=data_range).to(self.device)
-        self.ssim_metric = StructuralSimilarityIndexMeasure(data_range=data_range).to(self.device)
-
 
     def train_step(self, batch):
         input, target = batch
@@ -167,19 +159,19 @@ class Trainer:
     def test_epoch(self):
         self.model.eval()
 
+        outputs_list = []
+        targets_list = []
         for batch in tqdm(self.test_loader, desc="Testing", ascii=True, disable=not self.verbose):
             outputs, targets = self.test_step(batch)
 
-            self.psnr_metric.update(outputs, targets)
-            self.ssim_metric.update(outputs, targets)
+            outputs_list.append(outputs)
+            targets_list.append(targets)
 
         results = {}
         if "psnr" in self.test_metrics:
-            results["PSNR"] = self.psnr_metric.compute().item()
-            self.psnr_metric.reset()
+            results["PSNR"] = psnr_metric_from_list(outputs_list, targets_list, data_range=(-1.0, 1.0) if self.normalize else (0, 255.0))
         if "ssim" in self.test_metrics:
-            results["SSIM"] = self.ssim_metric.compute().item()
-            self.ssim_metric.reset()
+            results["SSIM"] = ssim_metric_from_list(outputs_list, targets_list, data_range=(-1.0, 1.0) if self.normalize else (0, 255.0))
 
         return results
     

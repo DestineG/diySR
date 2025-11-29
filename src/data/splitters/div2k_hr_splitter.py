@@ -1,24 +1,18 @@
-# /src/utils/data_split.py
+# /src/data/splitters/div2k_hr_splitter.py
 
 import os
 import random
 import yaml
 
-registered_splits = {}
-
-def register_split(name):
-    def decorator(func):
-        registered_splits[name] = func
-        return func
-    return decorator
+from . import register_splitter, split_results_dir
 
 
-@register_split("div2k_hr")
-def split_data_div2k_hr(split_config):
+@register_splitter("div2k_hr")
+def split_data_div2k_hr(config):
 
-    data_path = split_config.get("data_path")
-    train_ratio = split_config.get("train_ratio", 0.9)
-    seed = split_config.get("seed", 42)
+    data_path = config.get("data_path")
+    train_ratio = config.get("train_ratio", 0.9)
+    seed = config.get("seed", 42)
 
     train_path = os.path.join(data_path, "DF2K_train_HR")
     test_path = os.path.join(data_path, "DIV2K_valid_HR")
@@ -27,8 +21,7 @@ def split_data_div2k_hr(split_config):
     test_data = sorted(os.listdir(test_path))
 
     # 自动生成 YAML 保存目录
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    yaml_dir = os.path.abspath(os.path.join(current_dir, "..", "data/splits"))
+    yaml_dir = split_results_dir
     os.makedirs(yaml_dir, exist_ok=True)
 
     # YAML 文件名固定，只使用随机种子
