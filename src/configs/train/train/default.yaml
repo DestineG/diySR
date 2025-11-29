@@ -53,8 +53,7 @@ trainerClsArgs:
 
   device: cuda
   max_epochs: 1000
-  normalize: ${common.normalize_config.normalize}
-  verbose: ${common.verbose}
+  normalize_config: ${common.normalize_config}
 
   experiment_config:
     experiment_dir: ./experiments
@@ -70,3 +69,5 @@ trainerClsArgs:
       save_epoch_interval: 10
     hydra_config:
       origin_dir: ${hydra:run.dir}
+      hydra_save_dir: ${..experiment_dir}/${..experiment_name}/hydra
+    verbose: ${common.verbose}

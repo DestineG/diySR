@@ -8,7 +8,7 @@ import torchvision.utils as vutils
 from tqdm import tqdm
 
 from .components import get_train_components
-from ..utils.metrics import psnr_metric_from_list, ssim_metric_from_list
+from ..utils.metrics import compute_data_range_minmax, psnr_metric_from_list, ssim_metric_from_list
 
 
 registered_trainers = {}
@@ -28,70 +28,89 @@ class Trainer:
         self.dm = dm
         self.config = config
     
-    def setup(self):
-        # 数据加载
-        self.train_loader, self.val_loader, self.test_loader = self.dm.get_dataloaders()
+    def setup(self, stage=None):
+        
+        if stage == 'fit' or stage is None:
+            # 数据加载
+            self.train_loader, self.val_loader, self.test_loader = self.dm.get_dataloaders()
 
-        # 模型 训练状态加载
-        resume_config = self.config.get("resume_config", {})
-        resume = resume_config.get("resume", False)
-        checkpoint_dir = resume_config.get("resume_from_checkpointDir", None)
-        if resume and os.path.isdir(checkpoint_dir):
-            checkpoint_epoch = resume_config.get("resume_from_checkpointEpoch", 0)
-            epoch, global_step, optimizer_state, scheduler_state, best_val_loss = self.load_fromCheckpoint(
-                epoch=checkpoint_epoch,
-                checkpoint_dir=checkpoint_dir)
+            # 模型 训练状态加载
+            resume_config = self.config.get("resume_config", {})
+            resume = resume_config.get("resume", False)
+            checkpoint_dir = resume_config.get("resume_from_checkpointDir", None)
+            if resume and os.path.isdir(checkpoint_dir):
+                checkpoint_epoch = resume_config.get("resume_from_checkpointEpoch", 0)
+                epoch, global_step, optimizer_state, scheduler_state, best_val_loss = self.load_fromCheckpoint(
+                    epoch=checkpoint_epoch,
+                    checkpoint_dir=checkpoint_dir)
+            else:
+                epoch, global_step, optimizer_state, scheduler_state, best_val_loss = 0, 0, None, None, float("inf")
+            self.optimizer, self.scheduler, self.loss_fn = self.build_train_components(
+                optimizer_state=optimizer_state,
+                scheduler_state=scheduler_state)
+
+            # 训练超参数设置
+            self.start_epoch = epoch
+            self.max_epochs = self.config.get("max_epochs")
+            self.best_val_loss = best_val_loss
+            self.normalize_config = self.config.get("normalize_config")
+            self.device = self.config.get("device")
+            self.model.to(self.device)
+
+            # 实验记录设置
+            experiment_config = self.config.get("experiment_config", {})
+            experiments_dir = experiment_config.get("experiment_dir", "./experiments")
+            experiment_name = experiment_config.get("experiment_name", "default_experiment")
+            experiment_dir = os.path.join(experiments_dir, experiment_name)
+            os.makedirs(experiment_dir, exist_ok=True)
+
+            # 实验日志
+            log_config = experiment_config.get("log_config", {})
+            log_dir = os.path.join(experiment_dir, log_config.get("log_dir", "logs"))
+            os.makedirs(log_dir, exist_ok=True)
+            self.log_step_interval = log_config.get("log_step_interval", 100)
+            self.test_epoch_interval = log_config.get("test_epoch_interval", 20)
+            self.writer = SummaryWriter(log_dir=log_dir)
+            self.global_step = global_step
+            self.test_metrics = experiment_config.get("test_config", {}).get("test_metrics", [])
+            self.verbose = experiment_config.get("verbose")
+
+            # 检查点
+            checkpoint_config = experiment_config.get("checkpoint_config", {})
+            self.checkpoint_dir = os.path.join(experiment_dir, checkpoint_config.get("checkpoint_dir", "checkpoints"))
+            os.makedirs(self.checkpoint_dir, exist_ok=True)
+            self.save_epoch_interval = checkpoint_config.get("save_epoch_interval", 10)
+
+            # hydra配置保存
+            hydra_config = experiment_config.get("hydra_config", {})
+            origin_dir = hydra_config.get("origin_dir", None)
+            if origin_dir is not None:
+                hydra_save_dir = hydra_config.get("hydra_save_dir", None)
+                os.makedirs(hydra_save_dir, exist_ok=True)
+                for item in os.listdir(origin_dir):
+                    s = os.path.join(origin_dir, item)
+                    d = os.path.join(hydra_save_dir, item)
+                    if os.path.isdir(s):
+                        shutil.copytree(s, d, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(s, d)
+
+        elif stage == 'test':
+            # 数据加载
+            self.test_loader = self.dm.test_dataloader()
+
+            # 超参数设置
+            self.normalize_config = self.config.get("normalize_config")
+            
+            # 测试配置
+            self.device = self.config.get("device")
+            self.model.to(self.device)
+            experiment_config = self.config.get("experiment_config", {})
+            self.test_metrics = experiment_config.get("test_config", {}).get("test_metrics", [])
+            self.verbose = experiment_config.get("verbose")
+
         else:
-            epoch, global_step, optimizer_state, scheduler_state, best_val_loss = 0, 0, None, None, float("inf")
-        self.optimizer, self.scheduler, self.loss_fn = self.build_train_components(
-            optimizer_state=optimizer_state,
-            scheduler_state=scheduler_state)
-
-        # 训练超参数设置
-        self.start_epoch = epoch
-        self.max_epochs = self.config.get("max_epochs")
-        self.best_val_loss = best_val_loss
-        self.normalize = self.config.get("normalize")
-        self.device = self.config.get("device")
-        self.model.to(self.device)
-
-        # 实验记录设置
-        experiment_config = self.config.get("experiment_config", {})
-        experiments_dir = experiment_config.get("experiment_dir", "./experiments")
-        experiment_name = experiment_config.get("experiment_name", "default_experiment")
-        experiment_dir = os.path.join(experiments_dir, experiment_name)
-        os.makedirs(experiment_dir, exist_ok=True)
-
-        # 实验日志
-        log_config = experiment_config.get("log_config", {})
-        log_dir = os.path.join(experiment_dir, log_config.get("log_dir", "logs"))
-        os.makedirs(log_dir, exist_ok=True)
-        self.log_step_interval = log_config.get("log_step_interval", 100)
-        self.test_epoch_interval = log_config.get("test_epoch_interval", 20)
-        self.writer = SummaryWriter(log_dir=log_dir)
-        self.global_step = global_step
-        self.test_metrics = experiment_config.get("test_config", {}).get("test_metrics", [])
-        self.verbose = experiment_config.get("verbose")
-
-        # 检查点
-        checkpoint_config = experiment_config.get("checkpoint_config", {})
-        self.checkpoint_dir = os.path.join(experiment_dir, checkpoint_config.get("checkpoint_dir", "checkpoints"))
-        os.makedirs(self.checkpoint_dir, exist_ok=True)
-        self.save_epoch_interval = checkpoint_config.get("save_epoch_interval", 10)
-
-        # hydra配置保存
-        hydra_config = experiment_config.get("hydra_config", {})
-        origin_dir = hydra_config.get("origin_dir", None)
-        if origin_dir is not None:
-            hydra_save_dir = os.path.join(experiment_dir, "hydra")
-            os.makedirs(hydra_save_dir, exist_ok=True)
-            for item in os.listdir(origin_dir):
-                s = os.path.join(origin_dir, item)
-                d = os.path.join(hydra_save_dir, item)
-                if os.path.isdir(s):
-                    shutil.copytree(s, d, dirs_exist_ok=True)
-                else:
-                    shutil.copy2(s, d)
+            raise ValueError(f"Unknown stage: {stage}")
 
     def train_step(self, batch):
         input, target = batch
@@ -119,7 +138,7 @@ class Trainer:
     def train_epoch(self, epoch):
         self.model.train()
         epoch_loss = 0.0
-        
+
         for step, batch in enumerate(tqdm(self.train_loader, desc=f"Training Epoch {epoch}/{self.max_epochs}", ascii=True, disable=not self.verbose)):
             loss = self.train_step(batch)
             epoch_loss += loss
@@ -169,9 +188,9 @@ class Trainer:
 
         results = {}
         if "psnr" in self.test_metrics:
-            results["PSNR"] = psnr_metric_from_list(outputs_list, targets_list, data_range=(-1.0, 1.0) if self.normalize else (0, 255.0))
+            results["PSNR"] = psnr_metric_from_list(outputs_list, targets_list, data_range=compute_data_range_minmax(self.normalize_config))
         if "ssim" in self.test_metrics:
-            results["SSIM"] = ssim_metric_from_list(outputs_list, targets_list, data_range=(-1.0, 1.0) if self.normalize else (0, 255.0))
+            results["SSIM"] = ssim_metric_from_list(outputs_list, targets_list, data_range=compute_data_range_minmax(self.normalize_config))
 
         return results
     

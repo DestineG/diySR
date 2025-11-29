@@ -55,11 +55,17 @@ class BaseDataModule(pl.LightningDataModule):
         if stage == 'fit' or stage is None:
             train_dataset_config = self.train_config.get('dataset_config')
             val_dataset_config = self.val_config.get('dataset_config')
+            test_dataset_config = self.test_config.get('dataset_config')
             self.train_dataset = BaseDataset(train_dataset_config)
             self.val_dataset = BaseDataset(val_dataset_config)
-        if stage == 'test' or stage is None:
+            self.test_dataset = BaseDataset(test_dataset_config)
+
+        elif stage == 'test':
             test_dataset_config = self.test_config.get('dataset_config')
             self.test_dataset = BaseDataset(test_dataset_config)
+        
+        else:
+            raise ValueError(f"Unknown stage: {stage}")
 
     def train_dataloader(self):
         batch_size = self.train_config.get('batch_size')

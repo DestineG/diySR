@@ -46,7 +46,7 @@ datamoduleClsArgs:
       collateFuncArgs:
         mode: train
         patch_size: 144
-        min_scale: 1
+        min_scale: 2
         max_scale: 4
         scale: null
         interp_mode: bilinear
@@ -84,7 +84,7 @@ datamoduleClsArgs:
       collateFuncArgs:
         mode: val
         patch_size: 144
-        min_scale: 1
+        min_scale: 2
         max_scale: 4
         scale: null
         interp_mode: bilinear
@@ -122,7 +122,7 @@ datamoduleClsArgs:
       collateFuncArgs:
         mode: test
         patch_size: 144
-        min_scale: 1
+        min_scale: 2
         max_scale: 4
         scale: 2
         interp_mode: bicubic
