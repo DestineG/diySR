@@ -48,6 +48,8 @@ def test(cfg_path: str):
     TrainerClass = get_trainer_by_name(trainer_cls_name)
     trainer = TrainerClass(model, data_module, trainer_cls_args)
     trainer.setup(stage='test')
+    results = trainer.test()
+    print("Test Results:", results)
 
 
 # nohup python -m src.test > test.log

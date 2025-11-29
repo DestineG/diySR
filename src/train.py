@@ -4,19 +4,13 @@ import os
 import hydra
 from omegaconf import DictConfig
 
-from .utils.config import parse_cfg, save_cfg_to_yaml
+from .utils.config import parse_cfg, save_cfg_to_yaml, parse_cfg_from_yaml
 from .data import get_datamodule_by_name
 from .models import get_model_by_name
 from .trainers import get_trainer_by_name
 
 
-configs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'configs')
-train_configs_dir = os.path.join(configs_dir, 'train')
-print(train_configs_dir)
-@hydra.main(version_base=None, config_path=train_configs_dir, config_name="config")
-def train(cfg: DictConfig):
-    # 解析配置
-    cfg = parse_cfg(cfg)
+def train(cfg: dict):
     data_config = cfg.get('data')
     model_config = cfg.get('model')
     train_config = cfg.get('train')
@@ -39,16 +33,27 @@ def train(cfg: DictConfig):
     trainer_cls_args = train_config.get('trainerClsArgs')
     TrainerClass = get_trainer_by_name(trainer_cls_name)
     trainer = TrainerClass(model, data_module, trainer_cls_args)
+    trainer.setup(stage='fit')
 
     # 保存配置文件到Hydra指定目录
     hydra_save_dir = trainer_cls_args.get("experiment_config").get("hydra_config").get("hydra_save_dir")
     hydra_save_path = os.path.join(hydra_save_dir, "config.yaml")
     save_cfg_to_yaml(cfg, hydra_save_path)
-    trainer.setup(stage='fit')
     trainer.fit()
 
+configs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'configs')
+train_configs_dir = os.path.join(configs_dir, 'train')
+print(train_configs_dir)
+@hydra.main(version_base=None, config_path=train_configs_dir, config_name="config")
+def train_from_hydraConf(cfg: DictConfig):
+    cfg = parse_cfg(cfg)
+    train(cfg)
+
+def train_from_yaml(cfg_path: str):
+    cfg = parse_cfg_from_yaml(cfg_path)
+    train(cfg)
 
 # nohup python -m src.train > train.log &
 # tensorboard --logdir=experiments
 if __name__ == "__main__":
-    train()
+    train_from_hydraConf()

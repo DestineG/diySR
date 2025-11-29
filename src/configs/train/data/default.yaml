@@ -9,8 +9,8 @@ common:
       train_ratio: 0.9
       seed: 42
   
-  load_to: memory
-  color_mode: RGB
+  load_to: ${common.load_to}
+  color_mode: ${common.color_mode}
 
 datamoduleClsName: base_datamodule
 datamoduleClsArgs:

@@ -34,10 +34,7 @@ common:
 
 trainerClsName: base_trainer
 trainerClsArgs:
-  resume_config:
-    resume: false
-    resume_from_checkpointDir: null
-    resume_from_checkpointEpoch: 0
+  resume_config: ${common.resume_config}
 
   component_config:
     optimizer_config:

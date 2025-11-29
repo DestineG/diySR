@@ -29,12 +29,12 @@ class Trainer:
         self.config = config
     
     def setup(self, stage=None):
-        
         if stage == 'fit' or stage is None:
             # 数据加载
             self.train_loader, self.val_loader, self.test_loader = self.dm.get_dataloaders()
 
             # 模型 训练状态加载
+            self.device = self.config.get("device")
             resume_config = self.config.get("resume_config", {})
             resume = resume_config.get("resume", False)
             checkpoint_dir = resume_config.get("resume_from_checkpointDir", None)
@@ -45,17 +45,18 @@ class Trainer:
                     checkpoint_dir=checkpoint_dir)
             else:
                 epoch, global_step, optimizer_state, scheduler_state, best_val_loss = 0, 0, None, None, float("inf")
+            self.model.to(self.device)
             self.optimizer, self.scheduler, self.loss_fn = self.build_train_components(
                 optimizer_state=optimizer_state,
-                scheduler_state=scheduler_state)
+                scheduler_state=scheduler_state
+            )
+
 
             # 训练超参数设置
             self.start_epoch = epoch
             self.max_epochs = self.config.get("max_epochs")
             self.best_val_loss = best_val_loss
             self.normalize_config = self.config.get("normalize_config")
-            self.device = self.config.get("device")
-            self.model.to(self.device)
 
             # 实验记录设置
             experiment_config = self.config.get("experiment_config", {})
@@ -206,14 +207,22 @@ class Trainer:
             # 调度器步进
             self.scheduler.step()
 
+            # 保存最佳模型
             if val_loss < self.best_val_loss:
-                self.save_checkpoint("best", self.global_step, self.optimizer.state_dict(), self.scheduler.state_dict(), val_loss, self.checkpoint_dir)
+                self.save_checkpoint(epoch + 1, self.global_step,
+                                     self.optimizer.state_dict(),
+                                     self.scheduler.state_dict(),
+                                     val_loss, self.checkpoint_dir, suffix="best")
                 self.best_val_loss = val_loss
                 if self.verbose:
                     print(f"Saved checkpoint at epoch best")
 
+            # 定期保存
             if (epoch + 1) % self.save_epoch_interval == 0:
-                self.save_checkpoint(epoch + 1, self.global_step, self.optimizer.state_dict(), self.scheduler.state_dict(), val_loss, self.checkpoint_dir)
+                self.save_checkpoint(epoch + 1, self.global_step,
+                                     self.optimizer.state_dict(),
+                                     self.scheduler.state_dict(),
+                                     val_loss, self.checkpoint_dir, suffix=None)
                 if self.verbose:
                     print(f"Saved checkpoint at epoch {epoch + 1}")
             
@@ -223,13 +232,21 @@ class Trainer:
                 for metric, value in test_results.items():
                     self.writer.add_scalar(f'Test/{metric}', value, epoch+1)
 
-    def save_checkpoint(self, epoch, global_step, optimizer_state, scheduler_state, val_loss, checkpoint_dir):
-        # 保存模型权重
-        weight_path = os.path.join(checkpoint_dir, f"model_epoch_{epoch}.pth")
-        self.model.save_weights(weight_path)
+    def save_checkpoint(self, epoch, global_step, optimizer_state, scheduler_state, val_loss, checkpoint_dir, suffix=None):
+        if suffix == None:
+            # 保存模型权重 训练状态
+            weight_path = os.path.join(checkpoint_dir, f"epoch_{epoch}.pth")
+            state_path = os.path.join(checkpoint_dir, f"epoch_{epoch}_state.pth")
 
-        # 保存训练状态
-        state_path = os.path.join(checkpoint_dir, f"model_epoch_{epoch}_trainer_state.pth")
+        elif suffix in ["latest", "best"]:
+            # 保存模型权重 训练状态
+            weight_path = os.path.join(checkpoint_dir, f"model_epoch_{suffix}.pth")
+            state_path = os.path.join(checkpoint_dir, f"trainer_epoch_{suffix}_state.pth")
+        
+        else:
+            raise ValueError(f"Unknown suffix: {suffix}")
+
+        self.model.save_weights(weight_path)
         torch.save(
             {
                 'epoch': epoch,
@@ -243,12 +260,12 @@ class Trainer:
 
     def load_fromCheckpoint(self, epoch, checkpoint_dir):
         # 加载模型权重
-        weight_path = os.path.join(checkpoint_dir, f"model_epoch_{epoch}.pth")
+        weight_path = os.path.join(checkpoint_dir, f"epoch_{epoch}.pth")
         self.model.load_weights(weight_path)
         print(f"Loaded model weights from {weight_path}")
 
         # 加载训练状态
-        state_path = os.path.join(checkpoint_dir, f"model_epoch_{epoch}_trainer_state.pth")
+        state_path = os.path.join(checkpoint_dir, f"epoch_{epoch}_state.pth")
         if not os.path.isfile(state_path):
             print(f"[Warning] No trainer state found at {state_path}")
             return 0, 0, None, None, float('inf')
@@ -264,16 +281,24 @@ class Trainer:
         return epoch, global_step, optimizer_state, scheduler_state, val_loss
 
     def build_train_components(self, optimizer_state=None, scheduler_state=None):
-        # optimizer scheduler loss_fn
+        # optimizer / scheduler / loss_fn
         component_config = self.config.get("component_config")
         optimizer_config = component_config.get("optimizer_config")
         scheduler_config = component_config.get("scheduler_config")
         loss_config = component_config.get("loss_config")
+
         optimizer, scheduler, loss_fn = get_train_components(
             model_parameters=self.model.parameters(),
-            optimizer_config=optimizer_config,optimizer_state=optimizer_state,
-            scheduler_config=scheduler_config,scheduler_state=scheduler_state,
+            optimizer_config=optimizer_config,
+            optimizer_state=optimizer_state,
+            scheduler_config=scheduler_config,
+            scheduler_state=scheduler_state,
             loss_config=loss_config
         )
+
+        for param_state in optimizer.state.values():
+            for k, v in param_state.items():
+                if isinstance(v, torch.Tensor):
+                    param_state[k] = v.to(self.device)
 
         return optimizer, scheduler, loss_fn

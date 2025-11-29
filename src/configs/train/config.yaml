@@ -6,12 +6,19 @@ defaults:
 
 common:
   normalize_config:
-    normalize: true
+    normalize: false
     mean: [0.0, 0.0, 0.0]
     std: [1.0, 1.0, 1.0]
 
   verbose: true
-  experiment_name: exp_xx
+  experiment_name: exp_01
+  load_to: memory
+  color_mode: RGB
+
+  resume_config:
+    resume: false
+    resume_from_checkpointDir: /workspace/projects/dl/diySR/experiments/exp_01/checkpoints
+    resume_from_checkpointEpoch: 470
 
 hydra:
   run:
