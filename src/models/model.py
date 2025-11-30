@@ -94,4 +94,9 @@ class BaseModel(Model):
         # ----------- Decoder -----------
         decoded = self.decoder(local_feature)
 
-        return decoded
+        return {
+            "feature": {
+                "encoded": encoded
+            },
+            "pred": decoded
+        }

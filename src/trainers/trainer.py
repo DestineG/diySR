@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from .components import get_train_components
 from ..utils.metrics import compute_data_range_minmax, psnr_metric_from_list, ssim_metric_from_list
-
+from ..utils.feature_visualization import plot_channel_means
 
 registered_trainers = {}
 def register_trainer(name):
@@ -120,15 +120,19 @@ class Trainer:
 
         self.optimizer.zero_grad()
         outputs = self.model(intput)
-        loss = self.loss_fn(outputs, target)
+        pred = outputs["pred"]
+        loss = self.loss_fn(pred, target)
         loss.backward()
         self.optimizer.step()
 
         if (self.global_step + 1) % self.log_step_interval == 0:
+            plot_channel_means(outputs["feature"]["encoded"][0],
+                               self.global_step + 1, self.writer,
+                               tag="Feature/Encoded")
             self.writer.add_scalar('Loss/Step', loss, self.global_step + 1)
             lr_img = vutils.make_grid(intput['lr'][:4], normalize=True, scale_each=True)
             hr_img = vutils.make_grid(target[:4], normalize=True, scale_each=True)
-            pred_img = vutils.make_grid(outputs[:4], normalize=True, scale_each=True)
+            pred_img = vutils.make_grid(pred[:4], normalize=True, scale_each=True)
             self.writer.add_image('Images/LR', lr_img, self.global_step + 1)
             self.writer.add_image('Images/Pred', pred_img, self.global_step + 1)
             self.writer.add_image('Images/HR', hr_img, self.global_step + 1)
@@ -153,7 +157,8 @@ class Trainer:
 
         with torch.no_grad():
             outputs = self.model(intput)
-            loss = self.loss_fn(outputs, target)
+            pred = outputs["pred"]
+            loss = self.loss_fn(pred, target)
         return loss.item()
     
     def val_epoch(self):
@@ -173,8 +178,9 @@ class Trainer:
 
         with torch.no_grad():
             outputs = self.model(intput)
+            pred = outputs["pred"]
 
-        return outputs, target
+        return pred, target
     
     def test_epoch(self):
         self.model.eval()
@@ -182,9 +188,9 @@ class Trainer:
         outputs_list = []
         targets_list = []
         for batch in tqdm(self.test_loader, desc="Testing", ascii=True, disable=not self.verbose):
-            outputs, targets = self.test_step(batch)
+            pred, targets = self.test_step(batch)
 
-            outputs_list.append(outputs)
+            outputs_list.append(pred)
             targets_list.append(targets)
 
         results = {}
