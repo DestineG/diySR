@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from .components import get_train_components
 from ..utils.metrics import compute_data_range_minmax, psnr_metric_from_list, ssim_metric_from_list
-from ..utils.feature_visualization import plot_channel_means
+from ..utils.feature_visualization import plot_channel_stats
 
 registered_trainers = {}
 def register_trainer(name):
@@ -126,7 +126,7 @@ class Trainer:
         self.optimizer.step()
 
         if (self.global_step + 1) % self.log_step_interval == 0:
-            plot_channel_means(outputs["feature"]["encoded"][0],
+            plot_channel_stats(outputs["feature"]["encoded"][0],
                                self.global_step + 1, self.writer,
                                tag="Feature/Encoded")
             self.writer.add_scalar('Loss/Step', loss, self.global_step + 1)

@@ -7,6 +7,7 @@
 - test函数实现(使用exp_xx.hydra | 自定义config进行测试)
 - trainer_state保存bestepoch时, 其epoch的value为best,考虑是否保存真实epoch
 - 目前的resume依赖于configs中的配置, 扩展为依赖指定exp_xx中保存的config.yaml更会合理
+- lr target query
 
 ## 问题
 
